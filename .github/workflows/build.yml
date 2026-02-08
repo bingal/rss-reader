@@ -9,6 +9,7 @@ on:
       - "**.rs"
       - "**.toml"
       - "**.json"
+      - "**.js"
       - "**.html"
       - "!.github/**"
   pull_request:
