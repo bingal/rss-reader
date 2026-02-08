@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useAppStore, Article } from '@/stores/useAppStore';
+import { cn } from '@/lib/utils';
 
 interface ArticleViewProps {
   article: Article | null;
@@ -7,6 +9,8 @@ interface ArticleViewProps {
 
 export function ArticleView({ article }: ArticleViewProps) {
   const { feeds } = useAppStore();
+  const [translating, setTranslating] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -19,7 +23,7 @@ export function ArticleView({ article }: ArticleViewProps) {
   };
 
   const getFeedTitle = (feedId: string) => {
-    const feed = feeds.find((f: { id: string }) => f.id === feedId);
+    const feed = feeds.find((f) => f.id === feedId);
     return feed?.title || 'Unknown Feed';
   };
 
@@ -30,8 +34,26 @@ export function ArticleView({ article }: ArticleViewProps) {
   };
 
   const handleTranslate = async () => {
-    // Placeholder for translation feature
-    console.log('Translation not implemented yet');
+    if (!article || translating) return;
+    
+    setTranslating(true);
+    try {
+      const content = article.content || article.summary || '';
+      const result = await invoke<string>('translate_text', { 
+        text: content.slice(0, 5000), // Limit to 5000 chars
+        targetLang: 'zh' 
+      });
+      setTranslatedContent(result);
+    } catch (e) {
+      console.error('Translation failed:', e);
+    }
+    setTranslating(false);
+  };
+
+  const handleToggleStar = async () => {
+    if (!article) return;
+    const newStarred = article.isStarred === 0;
+    await invoke('toggle_starred', { id: article.id, starred: newStarred });
   };
 
   if (!article) {
@@ -45,23 +67,39 @@ export function ArticleView({ article }: ArticleViewProps) {
     );
   }
 
+  const displayContent = translatedContent || (article.content || article.summary || '');
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Article header */}
       <div className="p-4 border-b border-border">
-        <h1 className="text-xl font-semibold mb-2">{article.title}</h1>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span>📰</span> {getFeedTitle(article.feedId)}
-          </span>
-          {article.author && (
-            <span className="flex items-center gap-1">
-              <span>👤</span> {article.author}
-            </span>
-          )}
-          <span>{formatDate(article.pubDate)}</span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold mb-2">{article.title}</h1>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <span>📰</span> {getFeedTitle(article.feedId)}
+              </span>
+              {article.author && (
+                <span className="flex items-center gap-1">
+                  <span>👤</span> {article.author}
+                </span>
+              )}
+              <span>{formatDate(article.pubDate)}</span>
+            </div>
+          </div>
+          
+          <button
+            onClick={handleToggleStar}
+            className={cn(
+              'text-xl transition-transform hover:scale-110',
+              article.isStarred === 1 ? '⭐' : '☆'
+            )}
+            title="Toggle star"
+          />
         </div>
-        <div className="flex items-center gap-2 mt-3">
+        
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
           <button
             onClick={handleOpenOriginal}
             className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
@@ -70,20 +108,28 @@ export function ArticleView({ article }: ArticleViewProps) {
           </button>
           <button
             onClick={handleTranslate}
-            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors"
+            disabled={translating}
+            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors disabled:opacity-50"
           >
-            Translate
+            {translating ? '🌐 Translating...' : '🌐 Translate to Chinese'}
           </button>
         </div>
       </div>
 
       {/* Article content */}
       <div className="flex-1 overflow-y-auto p-6">
+        {translatedContent && (
+          <div className="mb-4 p-3 bg-muted rounded text-sm">
+            <p className="text-muted-foreground mb-2">📝 Translated content:</p>
+            <div 
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: translatedContent.replace(/\n/g, '<br/>') }}
+            />
+          </div>
+        )}
         <div 
           className="prose prose-sm dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ 
-            __html: article.content || article.summary || '' 
-          }}
+          dangerouslySetInnerHTML={{ __html: displayContent }}
         />
       </div>
     </div>

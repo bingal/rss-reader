@@ -37,8 +37,8 @@ fn delete_feed(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn fetch_articles(feed_id: Option<String>, limit: i64, offset: i64) -> Result<Vec<Article>, String> {
-    get_articles(feed_id, limit, offset)
+fn fetch_articles(feed_id: Option<String>, filter: Option<String>, limit: i64, offset: i64) -> Result<Vec<Article>, String> {
+    get_articles(feed_id, filter, limit, offset)
 }
 
 #[tauri::command]
@@ -89,6 +89,37 @@ fn set_app_setting(key: String, value: String) -> Result<(), String> {
     set_setting(key, value)
 }
 
+#[tauri::command]
+fn translate_text(text: String, target_lang: String) -> Result<String, String> {
+    // Simple translation using LibreTranslate (free API)
+    // In production, you might want to use a paid service or local model
+    let client = reqwest::blocking::Client::new();
+    
+    let response = client
+        .post("https://libretranslate.com/translate")
+        .json(&serde_json::json!({
+            "q": text,
+            "source": "auto",
+            "target": target_lang,
+            "format": "text"
+        }))
+        .send()
+        .map_err(|e| format!("Translation request failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err("Translation service unavailable".to_string());
+    }
+    
+    let json: serde_json::Value = response.json().map_err(|e| format!("Parse response failed: {}", e))?;
+    
+    let translated = json["translatedText"]
+        .as_str()
+        .ok_or_else(|| "Invalid translation response".to_string())?
+        .to_string();
+    
+    Ok(translated)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize database on startup
@@ -110,6 +141,7 @@ pub fn run() {
             toggle_starred,
             get_app_setting,
             set_app_setting,
+            translate_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -31,6 +31,13 @@ pub struct Article {
     pub fetched_at: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ArticleFilter {
+    All,
+    Unread,
+    Starred,
+}
+
 fn get_db_path() -> PathBuf {
     let mut path = data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("rss-reader");
@@ -88,6 +95,8 @@ pub fn init_db() -> Result<Connection> {
     // Create indexes
     conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_feed ON articles(feed_id)", [])?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(pub_date DESC)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_starred ON articles(is_starred)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(is_read)", [])?;
     
     Ok(conn)
 }
@@ -148,52 +157,66 @@ pub fn remove_feed(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_articles(feed_id: Option<String>, limit: i64, offset: i64) -> Result<Vec<Article>, String> {
+pub fn get_articles(
+    feed_id: Option<String>,
+    filter: Option<String>, // "all", "unread", "starred"
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<Article>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     
-    let query = if let Some(feed_id) = feed_id {
-        "SELECT id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at FROM articles WHERE feed_id = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?"
+    // Build query with filters
+    let mut conditions: Vec<String> = Vec::new();
+    let mut params: Vec<String> = Vec::new();
+    
+    if let Some(feed_id) = feed_id {
+        conditions.push("feed_id = ?".to_string());
+        params.push(feed_id);
+    }
+    
+    if let Some(filter) = filter {
+        match filter.as_str() {
+            "unread" => {
+                conditions.push("is_read = 0".to_string());
+            }
+            "starred" => {
+                conditions.push("is_starred = 1".to_string());
+            }
+            _ => {}
+        }
+    }
+    
+    let where_clause = if conditions.is_empty() {
+        "".to_string()
     } else {
-        "SELECT id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at FROM articles ORDER BY pub_date DESC LIMIT ? OFFSET ?"
+        format!(" WHERE {}", conditions.join(" AND "))
     };
     
-    let mut stmt = conn.prepare(query)?;
+    let query = format!(
+        "SELECT id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at FROM articles{} ORDER BY pub_date DESC LIMIT ? OFFSET ?",
+        where_clause
+    );
     
-    let articles = if let Some(feed_id) = feed_id {
-        stmt.query_map((feed_id, limit, offset), |row| {
-            Ok(Article {
-                id: row.get(0)?,
-                feed_id: row.get(1)?,
-                title: row.get(2)?,
-                link: row.get(3)?,
-                content: row.get(4)?,
-                summary: row.get(5)?,
-                author: row.get(6)?,
-                pub_date: row.get(7)?,
-                is_read: row.get(8)?,
-                is_starred: row.get(9)?,
-                fetched_at: row.get(10)?,
-            })
-        })?
-    } else {
-        stmt.query_map((limit, offset), |row| {
-            Ok(Article {
-                id: row.get(0)?,
-                feed_id: row.get(1)?,
-                title: row.get(2)?,
-                link: row.get(3)?,
-                content: row.get(4)?,
-                summary: row.get(5)?,
-                author: row.get(6)?,
-                pub_date: row.get(7)?,
-                is_read: row.get(8)?,
-                is_starred: row.get(9)?,
-                fetched_at: row.get(10)?,
-            })
-        })?
-    };
+    params.push(limit.to_string());
+    params.push(offset.to_string());
     
-    let articles: Vec<Article> = articles.collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&query)?;
+    let articles = stmt.query_map(params.as_slice(), |row| {
+        Ok(Article {
+            id: row.get(0)?,
+            feed_id: row.get(1)?,
+            title: row.get(2)?,
+            link: row.get(3)?,
+            content: row.get(4)?,
+            summary: row.get(5)?,
+            author: row.get(6)?,
+            pub_date: row.get(7)?,
+            is_read: row.get(8)?,
+            is_starred: row.get(9)?,
+            fetched_at: row.get(10)?,
+        })
+    })?.collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?;
+    
     Ok(articles)
 }
 

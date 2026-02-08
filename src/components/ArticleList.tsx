@@ -10,14 +10,15 @@ interface ArticleListProps {
 }
 
 export function ArticleList({ onSelectArticle, selectedArticleId }: ArticleListProps) {
-  const { selectedFeedId, markArticleAsRead } = useAppStore();
+  const { selectedFeedId, filter, setFilter, markArticleAsRead } = useAppStore();
   const [limit] = useState(50);
 
   const { data: articles, isLoading } = useQuery({
-    queryKey: ['articles', selectedFeedId, limit],
+    queryKey: ['articles', selectedFeedId, filter, limit],
     queryFn: async () => {
       const result = await invoke<Article[]>('fetch_articles', { 
         feedId: selectedFeedId, 
+        filter,
         limit, 
         offset: 0 
       });
@@ -57,11 +58,24 @@ export function ArticleList({ onSelectArticle, selectedArticleId }: ArticleListP
 
   return (
     <div className="w-80 border-r border-border flex flex-col h-full bg-muted/10">
-      {/* Header */}
-      <div className="p-3 border-b border-border">
-        <h2 className="font-medium text-sm">
-          {selectedFeedId ? 'Feed Articles' : 'All Articles'}
-        </h2>
+      {/* Header with filter */}
+      <div className="p-2 border-b border-border">
+        <div className="flex gap-1">
+          {(['all', 'unread', 'starred'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'flex-1 px-2 py-1 text-xs rounded transition-colors capitalize',
+                filter === f
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              )}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Article list */}
@@ -70,7 +84,7 @@ export function ArticleList({ onSelectArticle, selectedArticleId }: ArticleListP
           <div className="p-4 text-sm text-muted-foreground">Loading...</div>
         ) : articles?.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">
-            No articles yet. Add some feeds to get started!
+            No {filter === 'all' ? '' : filter} articles
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -79,13 +93,18 @@ export function ArticleList({ onSelectArticle, selectedArticleId }: ArticleListP
                 key={article.id}
                 onClick={() => handleSelect(article)}
                 className={cn(
-                  'p-3 cursor-pointer transition-colors hover:bg-muted/50',
+                  'p-3 cursor-pointer transition-colors hover:bg-muted/50 relative',
                   selectedArticleId === article.id && 'bg-muted',
                   article.isRead === 0 && !selectedArticleId && 'bg-background'
                 )}
               >
+                {/* Star indicator */}
+                {article.isStarred === 1 && (
+                  <span className="absolute top-2 right-2 text-yellow-500">⭐</span>
+                )}
+                
                 <h3 className={cn(
-                  'text-sm font-medium mb-1 line-clamp-2',
+                  'text-sm font-medium mb-1 line-clamp-2 pr-6',
                   article.isRead ? 'text-muted-foreground' : 'text-foreground'
                 )}>
                   {article.title}
@@ -93,7 +112,7 @@ export function ArticleList({ onSelectArticle, selectedArticleId }: ArticleListP
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {article.author && (
                     <>
-                      <span className="truncate max-w-[100px]">{article.author}</span>
+                      <span className="truncate max-w-[80px]">{article.author}</span>
                       <span>•</span>
                     </>
                   )}

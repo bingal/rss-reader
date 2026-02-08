@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
+export type ArticleFilter = 'all' | 'unread' | 'starred';
 
 export interface Feed {
   id: string;
@@ -37,6 +38,10 @@ interface AppState {
   selectedFeedId: string | null;
   setSelectedFeedId: (id: string | null) => void;
   
+  // Filter
+  filter: ArticleFilter;
+  setFilter: (filter: ArticleFilter) => void;
+  
   // View mode
   isSettingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
@@ -60,7 +65,11 @@ export const useAppStore = create<AppState>()(
       
       // Selected feed
       selectedFeedId: null,
-      setSelectedFeedId: (id) => set({ selectedFeedId: id }),
+      setSelectedFeedId: (id) => set({ selectedFeedId: id, filter: 'all' }),
+      
+      // Filter
+      filter: 'all',
+      setFilter: (filter) => set({ filter }),
       
       // View mode
       isSettingsOpen: false,
