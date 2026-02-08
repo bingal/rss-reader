@@ -164,12 +164,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libappindicator3-0.1-cmake \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-1-dev \
             libssl-dev \
             pkg-config \
             libudev-dev \
-            libdbus-1-dev
+            libdbus-1-dev \
+            cmake
 
       - name: Build Linux app
         run: |
