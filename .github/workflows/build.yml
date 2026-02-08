@@ -19,8 +19,6 @@ on:
 
 env:
   RUST_TOOLCHAIN: stable
-  TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-  TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
 jobs:
   # Check code quality
@@ -80,11 +78,6 @@ jobs:
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
-      - name: Setup Tauri
-        uses: tauri-apps/tauri-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build macOS app
         run: |
           cd src-tauri
@@ -127,11 +120,6 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Setup Tauri
-        uses: tauri-apps/tauri-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build Windows app
         run: |
           cd src-tauri
@@ -171,11 +159,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
-
-      - name: Setup Tauri
-        uses: tauri-apps/tauri-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies for building
         run: |
