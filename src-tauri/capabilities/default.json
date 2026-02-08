@@ -4,13 +4,6 @@
   "description": "Default capabilities for the main window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "core:window:default",
-    "core:app:default",
-    "core:path:default",
-    {
-      "identifier": "core:http:default",
-      "allow": ["*"]
-    }
+    "core:default"
   ]
 }
