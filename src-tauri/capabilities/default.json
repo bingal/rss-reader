@@ -1,23 +1,13 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
   "identifier": "default",
   "description": "Default capabilities for the main window",
   "windows": ["main"],
   "permissions": [
-    {
-      "identifier": "core:default"
-    },
-    {
-      "identifier": "core:api:all"
-    },
-    {
-      "identifier": "core:window:default"
-    },
-    {
-      "identifier": "core:app:default"
-    },
-    {
-      "identifier": "core:path:default"
-    },
+    "core:default",
+    "core:window:default",
+    "core:app:default",
+    "core:path:default",
     {
       "identifier": "core:http:default",
       "allow": ["*"]
