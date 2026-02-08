@@ -144,6 +144,42 @@ npm run tauri build -- --target x86_64-pc-windows-msvc   # Windows
 npm run tauri build -- --target x86_64-unknown-linux-gnu # Linux
 ```
 
+## 🔄 CI/CD
+
+### GitHub Actions
+
+This project uses GitHub Actions for automated builds on macOS, Windows, and Linux.
+
+**Workflow**: [`.github/workflows/build.yml`](.github/workflows/build.yml)
+
+**Triggers**:
+- Push to `main` branch
+- Pull requests to `main`
+- Creating a release tag (e.g., `v1.0.0`)
+
+**Build Matrix**:
+| Platform | Artifacts |
+|----------|-----------|
+| macOS | `.dmg` (Apple Silicon + Intel) |
+| Windows | `.msi`, `.exe` |
+| Linux | `.deb`, `.rpm`, `.AppImage` |
+
+**Artifacts** are uploaded automatically and can be downloaded from the Actions tab.
+
+### Setup for Automated Builds
+
+1. Go to repository Settings → Secrets
+2. Add the following secrets:
+   - `TAURI_PRIVATE_KEY`: Your Tauri private key
+   - `TAURI_KEY_PASSWORD`: Your Tauri key password
+3. Create a release tag and push to trigger the build
+
+```bash
+# Create a version tag
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
