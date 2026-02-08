@@ -31,6 +31,7 @@ pub struct Article {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub enum ArticleFilter {
     All,
     Unread,
