@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "default",
+  "description": "Default capabilities for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:api:IPC",
+    "core:window:default",
+    "core:app:default",
+    "core:path:default",
+    "core:http:default"
+  ]
+}
