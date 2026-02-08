@@ -9,9 +9,8 @@ use db::{
     mark_article_read, toggle_article_starred, get_setting, set_setting,
     Feed, Article,
 };
-use rss::fetch_feed;
+use rss::{fetch_feed, fetch_and_save_feed};
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've greeted the RSS Reader!", name)
@@ -43,8 +42,31 @@ fn fetch_articles(feed_id: Option<String>, limit: i64, offset: i64) -> Result<Ve
 }
 
 #[tauri::command]
-fn refresh_feed(url: String) -> Result<Vec<Article>, String> {
-    fetch_feed(url)
+fn refresh_feed(feed_id: String) -> Result<i64, String> {
+    // Get feed by ID
+    let feeds = get_feeds()?;
+    let feed = feeds.iter()
+        .find(|f| f.id == feed_id)
+        .ok_or_else(|| "Feed not found".to_string())?;
+    
+    // Fetch and save articles
+    let count = fetch_and_save_feed(&feed.url, &feed_id)?;
+    Ok(count)
+}
+
+#[tauri::command]
+fn refresh_all_feeds() -> Result<i64, String> {
+    let feeds = get_feeds()?;
+    let mut total = 0;
+    
+    for feed in feeds {
+        match fetch_and_save_feed(&feed.url, &feed.id) {
+            Ok(count) => total += count,
+            Err(e) => eprintln!("Failed to refresh feed {}: {}", feed.title, e),
+        }
+    }
+    
+    Ok(total)
 }
 
 #[tauri::command]
@@ -83,6 +105,7 @@ pub fn run() {
             delete_feed,
             fetch_articles,
             refresh_feed,
+            refresh_all_feeds,
             mark_read,
             toggle_starred,
             get_app_setting,

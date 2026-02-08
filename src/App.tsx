@@ -1,48 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ArticleList } from './components/ArticleList';
 import { ArticleView } from './components/ArticleView';
-import { useAppStore } from '@/stores/useAppStore';
-
-interface Article {
-  id: string;
-  feedId: string;
-  title: string;
-  link: string;
-  content: string;
-  summary?: string;
-  author?: string;
-  pubDate: number;
-  isRead: number;
-  isStarred: number;
-  fetchedAt: number;
-}
+import { OPMLImport } from './components/OPMLImport';
+import { useAppStore, Article } from '@/stores/useAppStore';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useQueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
 
 function App() {
   const { theme, setTheme } = useAppStore();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showOPML, setShowOPML] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Get articles from query cache for keyboard navigation
+  const articlesData = queryClient.getQueryData<Article[]>(['articles', null, 50]) || [];
+  const articles = Array.isArray(articlesData) ? articlesData : [];
 
   // Apply theme
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-  }, [theme]);
+  document.documentElement.classList.remove('light', 'dark');
+  if (theme === 'system') {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+    document.documentElement.classList.add(systemTheme);
+  } else {
+    document.documentElement.classList.add(theme);
+  }
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Refresh logic would go here
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      const result = await invoke<number>('refresh_all_feeds');
+      console.log(`Refreshed ${result} articles`);
+      queryClient.invalidateQueries({ queryKey: ['articles'] });
+    } catch (e) {
+      console.error('Refresh failed:', e);
+    }
+    setIsRefreshing(false);
   };
+
+  const handleToggleTheme = () => {
+    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
+    const currentIndex = themes.indexOf(theme);
+    setTheme(themes[(currentIndex + 1) % themes.length]);
+  };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    articles,
+    selectedArticleId: selectedArticle?.id || null,
+    onSelectArticle: setSelectedArticle,
+    onRefresh: handleRefresh,
+    onToggleTheme: handleToggleTheme,
+  });
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">
@@ -55,23 +68,28 @@ function App() {
         
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowOPML(true)}
+            className="p-1.5 rounded hover:bg-muted transition-colors"
+            title="Import/Export OPML"
+          >
+            📥
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            title="Refresh"
+            title="Refresh (R)"
           >
             {isRefreshing ? '⏳' : '🔄'}
           </button>
           
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-            className="bg-transparent text-sm border border-border rounded px-2 py-1"
+          <button
+            onClick={handleToggleTheme}
+            className="p-1.5 rounded hover:bg-muted transition-colors"
+            title="Toggle Theme (M)"
           >
-            <option value="system">🌙 Auto</option>
-            <option value="light">☀️ Light</option>
-            <option value="dark">🌙 Dark</option>
-          </select>
+            {theme === 'dark' ? '☀️' : theme === 'light' ? '🌙' : '🌙'}
+          </button>
           
           <button
             className="p-1.5 rounded hover:bg-muted transition-colors"
@@ -94,9 +112,15 @@ function App() {
 
       {/* Status bar */}
       <footer className="h-6 flex items-center justify-between px-4 border-t border-border bg-muted/20 text-xs text-muted-foreground">
-        <span>Ready</span>
-        <span>RSS Reader v0.1.0</span>
+        <span>
+          {articles.length} articles 
+          {selectedArticle && ' • Selected'}
+        </span>
+        <span>Press ? for keyboard shortcuts</span>
       </footer>
+
+      {/* OPML Modal */}
+      <OPMLImport isOpen={showOPML} onClose={() => setShowOPML(false)} />
     </div>
   );
 }

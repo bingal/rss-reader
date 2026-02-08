@@ -18,31 +18,74 @@ pub fn fetch_feed(url: String) -> Result<Vec<Article>, String> {
     let feed = parser::parse(body.as_bytes())
         .map_err(|e| format!("Failed to parse RSS: {}", e))?;
     
-    let articles = convert_feed_to_articles(&feed, &url)?;
+    let articles = convert_feed_to_articles(&feed)?;
     Ok(articles)
 }
 
-fn convert_feed_to_articles(feed: &RSSFeed, feed_url: &str) -> Result<Vec<Article>, String> {
-    let mut articles = Vec::new();
-    let conn = init_db().map_err(|e| e.to_string())?;
+pub fn fetch_and_save_feed(url: &str, feed_id: &str) -> Result<i64, String> {
+    let articles = fetch_feed(url.to_string())?;
     
-    // Get existing article links to avoid duplicates
-    let existing_links: HashMap<String, i32> = conn.prepare("SELECT link, 1 FROM articles")?
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+    if articles.is_empty() {
+        return Ok(0);
+    }
+    
+    let conn = init_db().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().timestamp();
+    let mut saved_count = 0;
+    
+    // Get existing article links
+    let existing_links: HashMap<String, i32> = conn.prepare("SELECT link, 1 FROM articles WHERE feed_id = ?")?
+        .query_map([feed_id], |row| Ok((row.get(0)?, row.get(1)?)))?
         .filter_map(|r| r.ok())
         .collect();
     
+    // Save new articles
+    for mut article in articles {
+        if existing_links.contains_key(&article.link) {
+            continue;
+        }
+        
+        article.feed_id = feed_id.to_string();
+        
+        // Insert article
+        conn.execute(
+            "INSERT OR IGNORE INTO articles (id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                &article.id,
+                &article.feed_id,
+                &article.title,
+                &article.link,
+                &article.content,
+                article.summary.as_deref().unwrap_or(""),
+                article.author.as_deref().unwrap_or(""),
+                &article.pub_date.unwrap_or(now).to_string(),
+                &article.is_read.to_string(),
+                &article.is_starred.to_string(),
+                &article.fetched_at.to_string(),
+            ],
+        ).map_err(|e| e.to_string())?;
+        
+        saved_count += 1;
+    }
+    
+    // Update feed timestamp
+    conn.execute(
+        "UPDATE feeds SET updated_at = ? WHERE id = ?",
+        [now.to_string(), feed_id],
+    ).ok();
+    
+    Ok(saved_count)
+}
+
+fn convert_feed_to_articles(feed: &RSSFeed) -> Result<Vec<Article>, String> {
+    let mut articles = Vec::new();
     let now = chrono::Utc::now().timestamp();
     
     for entry in feed.entries.iter() {
-        // Skip if already exists
         let link = entry.link.as_ref()
             .map(|l| l.href.clone())
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        
-        if existing_links.contains_key(&link) {
-            continue;
-        }
         
         let id = Uuid::new_v4().to_string();
         
@@ -63,9 +106,9 @@ fn convert_feed_to_articles(feed: &RSSFeed, feed_url: &str) -> Result<Vec<Articl
         
         let article = Article {
             id,
-            feed_id: String::new(), // Will be set by caller
+            feed_id: String::new(),
             title,
-            link: link.clone(),
+            link,
             content: content.clone(),
             summary: summary.clone(),
             author,
