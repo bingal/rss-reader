@@ -61,7 +61,7 @@ export async function importFromOPML(opmlContent: string): Promise<{ count: numb
   return { count, errors };
 }
 
-function escapeXml(text: string): string {
+export function escapeXml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
