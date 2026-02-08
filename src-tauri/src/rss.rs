@@ -128,16 +128,16 @@ fn extract_content(entry: &Entry) -> (String, Option<String>) {
     // Prefer content over summary
     let content = entry.content.as_ref()
         .or(entry.summary.as_ref())
-        .map(|c| c.body.clone())
-        .unwrap_or_else(|| String::new());
+        .and_then(|c| c.content.clone())
+        .unwrap_or_default();
     
     let summary = entry.summary.as_ref()
-        .map(|s| s.body.clone())
-        .filter(|s| !s.is_empty() && s != content);
+        .and_then(|s| s.content.clone())
+        .filter(|s| !s.is_empty() && s != &content);
     
     // Extract summary from content if needed
-    let final_summary = if let Some(summary) = &summary {
-        Some(summary.clone())
+    let final_summary = if let Some(summary) = summary {
+        Some(summary)
     } else if !content.is_empty() {
         Some(create_summary(&content))
     } else {

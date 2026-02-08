@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
-use tauri::api::path::data_dir;
+// Use dirs crate for data_dir
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Feed {
@@ -39,7 +39,7 @@ pub enum ArticleFilter {
 }
 
 fn get_db_path() -> PathBuf {
-    let mut path = data_dir().unwrap_or_else(|| PathBuf::from("."));
+    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("rss-reader");
     fs::create_dir_all(&path).ok();
     path.push("data.db");
