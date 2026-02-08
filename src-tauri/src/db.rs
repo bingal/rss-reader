@@ -1,8 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
-// Use dirs crate for data_dir
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Feed {
@@ -167,58 +166,65 @@ pub fn get_articles(
 ) -> Result<Vec<Article>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     
-    // Build query with filters
+    // Build query dynamically
+    let mut query = "SELECT id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at FROM articles".to_string();
     let mut conditions: Vec<String> = Vec::new();
-    let mut params: Vec<String> = Vec::new();
     
-    if let Some(feed_id) = feed_id {
+    if feed_id.is_some() {
         conditions.push("feed_id = ?".to_string());
-        params.push(feed_id);
     }
     
-    if let Some(filter) = filter {
+    if let Some(ref filter) = filter {
         match filter.as_str() {
-            "unread" => {
-                conditions.push("is_read = 0".to_string());
-            }
-            "starred" => {
-                conditions.push("is_starred = 1".to_string());
-            }
+            "unread" => conditions.push("is_read = 0".to_string()),
+            "starred" => conditions.push("is_starred = 1".to_string()),
             _ => {}
         }
     }
     
-    let where_clause = if conditions.is_empty() {
-        "".to_string()
-    } else {
-        format!(" WHERE {}", conditions.join(" AND "))
-    };
+    if !conditions.is_empty() {
+        query.push_str(&format!(" WHERE {}", conditions.join(" AND ")));
+    }
     
-    let query = format!(
-        "SELECT id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at FROM articles{} ORDER BY pub_date DESC LIMIT ? OFFSET ?",
-        where_clause
-    );
-    
-    params.push(limit.to_string());
-    params.push(offset.to_string());
+    query.push_str(" ORDER BY pub_date DESC LIMIT ? OFFSET ?");
     
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    let articles = stmt.query_map(params.as_slice(), |row| {
-        Ok(Article {
-            id: row.get(0)?,
-            feed_id: row.get(1)?,
-            title: row.get(2)?,
-            link: row.get(3)?,
-            content: row.get(4)?,
-            summary: row.get(5)?,
-            author: row.get(6)?,
-            pub_date: row.get(7)?,
-            is_read: row.get(8)?,
-            is_starred: row.get(9)?,
-            fetched_at: row.get(10)?,
-        })
-    }).map_err(|e| e.to_string())?
-    .collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?;
+    
+    let articles = if let Some(fid) = feed_id {
+        stmt.query_map(params![fid, limit, offset], |row| {
+            Ok(Article {
+                id: row.get(0)?,
+                feed_id: row.get(1)?,
+                title: row.get(2)?,
+                link: row.get(3)?,
+                content: row.get(4)?,
+                summary: row.get(5)?,
+                author: row.get(6)?,
+                pub_date: row.get(7)?,
+                is_read: row.get(8)?,
+                is_starred: row.get(9)?,
+                fetched_at: row.get(10)?,
+            })
+        }).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?
+    } else {
+        stmt.query_map(params![limit, offset], |row| {
+            Ok(Article {
+                id: row.get(0)?,
+                feed_id: row.get(1)?,
+                title: row.get(2)?,
+                link: row.get(3)?,
+                content: row.get(4)?,
+                summary: row.get(5)?,
+                author: row.get(6)?,
+                pub_date: row.get(7)?,
+                is_read: row.get(8)?,
+                is_starred: row.get(9)?,
+                fetched_at: row.get(10)?,
+            })
+        }).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?
+    };
     
     Ok(articles)
 }
@@ -226,24 +232,23 @@ pub fn get_articles(
 #[tauri::command]
 pub fn mark_article_read(id: String, read: bool) -> Result<(), String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let read_value = if read { 1 } else { 0 };
-    conn.execute("UPDATE articles SET is_read = ? WHERE id = ?", [read_value, &id]).map_err(|e| e.to_string())?;
+    let read_value: i32 = if read { 1 } else { 0 };
+    conn.execute("UPDATE articles SET is_read = ? WHERE id = ?", params![read_value, id]).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn toggle_article_starred(id: String, starred: bool) -> Result<(), String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let starred_value = if starred { 1 } else { 0 };
-    conn.execute("UPDATE articles SET is_starred = ? WHERE id = ?", [starred_value, &id]).map_err(|e| e.to_string())?;
+    let starred_value: i32 = if starred { 1 } else { 0 };
+    conn.execute("UPDATE articles SET is_starred = ? WHERE id = ?", params![starred_value, id]).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_setting(key: String) -> Result<Option<String>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?")?;
-    let result: Option<String> = stmt.query_row([&key], |row| row.get(0)).ok();
+    let result: Option<String> = conn.query_row("SELECT value FROM settings WHERE key = ?", [&key], |row| row.get(0)).ok();
     Ok(result)
 }
 

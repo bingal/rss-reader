@@ -34,10 +34,13 @@ pub fn fetch_and_save_feed(url: &str, feed_id: &str) -> Result<i64, String> {
     let mut saved_count = 0;
     
     // Get existing article links
-    let existing_links: HashMap<String, i32> = conn.prepare("SELECT link, 1 FROM articles WHERE feed_id = ?")?
-        .query_map([feed_id], |row| Ok((row.get(0)?, row.get(1)?)))?
-        .filter_map(|r| r.ok())
-        .collect();
+    let mut stmt = conn.prepare("SELECT link, 1 FROM articles WHERE feed_id = ?")
+        .map_err(|e| e.to_string())?;
+    let existing_links: HashMap<String, i32> = stmt.query_map([feed_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
     
     // Save new articles
     for mut article in articles {
@@ -101,7 +104,6 @@ fn convert_feed_to_articles(feed: &RSSFeed) -> Result<Vec<Article>, String> {
         // Get author
         let author = entry.authors.first()
             .map(|a| a.name.clone())
-            .or_else(|| entry.source.as_ref().and_then(|s| s.title.as_ref().map(|t| t.content.clone())))
             .or_else(|| feed.title.as_ref().map(|t| t.content.clone()));
         
         let pub_date = entry.published
