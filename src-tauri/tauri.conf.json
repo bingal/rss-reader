@@ -3,6 +3,11 @@
   "productName": "rss-reader",
   "version": "0.1.0",
   "identifier": "com.bingal.rss-reader",
+  "plugins": {
+    "updater": {
+      "pubkey": "-----BEGIN PUBLIC KEY-----\ndW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI4RDAxODcyQjZBMkNCNjcKUldSbnk2SzJjaGpRdUIxRSttekdFUzJrMWZKaGU5RDQycHFjQnJLU1N1b3A4a1dYdzNFN2lyZU8K\n-----END PUBLIC KEY-----"
+    }
+  },
   "build": {
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
