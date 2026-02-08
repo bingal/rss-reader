@@ -3,10 +3,10 @@
 ## Build Size
 
 | Component | Size (gzip) |
-|-----------|-------------|
-| index.js | ~81 KB |
-| index.css | ~4 KB |
-| **Total** | ~85 KB |
+| --------- | ----------- |
+| index.js  | ~81 KB      |
+| index.css | ~4 KB       |
+| **Total** | ~85 KB      |
 
 ## Test Coverage
 
@@ -22,6 +22,7 @@
 ## Bundle Analysis
 
 ### JavaScript Breakdown
+
 - React + ReactDOM: ~40 KB
 - Tauri API: ~20 KB
 - Zustand: ~2 KB
@@ -30,6 +31,7 @@
 - Application code: ~10 KB
 
 ### CSS Breakdown
+
 - Tailwind base: ~3 KB
 - Custom styles: ~1 KB
 

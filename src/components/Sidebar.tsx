@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAppStore, Feed } from '@/stores/useAppStore';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAppStore, Feed } from "@/stores/useAppStore";
+import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const { feeds, setFeeds, selectedFeedId, setSelectedFeedId } = useAppStore();
-  const [newFeedUrl, setNewFeedUrl] = useState('');
+  const [newFeedUrl, setNewFeedUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: feedsData, isLoading } = useQuery({
-    queryKey: ['feeds'],
+    queryKey: ["feeds"],
     queryFn: async () => {
-      const result = await invoke<Feed[]>('get_all_feeds');
+      const result = await invoke<Feed[]>("get_all_feeds");
       return result;
     },
   });
@@ -26,13 +26,18 @@ export function Sidebar() {
 
   const addFeedMutation = useMutation({
     mutationFn: async (url: string) => {
-      const title = 'New Feed';
-      await invoke<Feed>('add_new_feed', { title, url, description: null, category: null });
+      const title = "New Feed";
+      await invoke<Feed>("add_new_feed", {
+        title,
+        url,
+        description: null,
+        category: null,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feeds'] });
+      queryClient.invalidateQueries({ queryKey: ["feeds"] });
       setIsAdding(false);
-      setNewFeedUrl('');
+      setNewFeedUrl("");
     },
   });
 
@@ -54,32 +59,34 @@ export function Sidebar() {
       {/* Feed list */}
       <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground p-2">Loading feeds...</div>
+          <div className="text-sm text-muted-foreground p-2">
+            Loading feeds...
+          </div>
         ) : (
           <div className="space-y-1">
             {/* All feeds */}
             <button
               onClick={() => setSelectedFeedId(null)}
               className={cn(
-                'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
+                "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
                 selectedFeedId === null
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'hover:bg-muted'
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "hover:bg-muted",
               )}
             >
               📰 All Articles
             </button>
-            
+
             {/* Individual feeds */}
             {feeds.map((feed) => (
               <button
                 key={feed.id}
                 onClick={() => setSelectedFeedId(feed.id)}
                 className={cn(
-                  'w-full text-left px-3 py-2 rounded-md text-sm transition-colors truncate',
+                  "w-full text-left px-3 py-2 rounded-md text-sm transition-colors truncate",
                   selectedFeedId === feed.id
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'hover:bg-muted'
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "hover:bg-muted",
                 )}
               >
                 {feed.title}

@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Sidebar } from './components/Sidebar';
-import { ArticleList } from './components/ArticleList';
-import { ArticleView } from './components/ArticleView';
-import { OPMLImport } from './components/OPMLImport';
-import { useAppStore, Article } from '@/stores/useAppStore';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+import { useState } from "react";
+import { Sidebar } from "./components/Sidebar";
+import { ArticleList } from "./components/ArticleList";
+import { ArticleView } from "./components/ArticleView";
+import { OPMLImport } from "./components/OPMLImport";
+import { useAppStore, Article } from "@/stores/useAppStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 
 function App() {
   const { theme, setTheme } = useAppStore();
@@ -16,15 +16,17 @@ function App() {
   const queryClient = useQueryClient();
 
   // Get articles from query cache for keyboard navigation
-  const articlesData = queryClient.getQueryData<Article[]>(['articles', null, 50]) || [];
+  const articlesData =
+    queryClient.getQueryData<Article[]>(["articles", null, 50]) || [];
   const articles = Array.isArray(articlesData) ? articlesData : [];
 
   // Apply theme
-  document.documentElement.classList.remove('light', 'dark');
-  if (theme === 'system') {
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
+  document.documentElement.classList.remove("light", "dark");
+  if (theme === "system") {
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
     document.documentElement.classList.add(systemTheme);
   } else {
     document.documentElement.classList.add(theme);
@@ -33,17 +35,17 @@ function App() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const result = await invoke<number>('refresh_all_feeds');
+      const result = await invoke<number>("refresh_all_feeds");
       console.log(`Refreshed ${result} articles`);
-      queryClient.invalidateQueries({ queryKey: ['articles'] });
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
     } catch (e) {
-      console.error('Refresh failed:', e);
+      console.error("Refresh failed:", e);
     }
     setIsRefreshing(false);
   };
 
   const handleToggleTheme = () => {
-    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
+    const themes: ("light" | "dark" | "system")[] = ["light", "dark", "system"];
     const currentIndex = themes.indexOf(theme);
     setTheme(themes[(currentIndex + 1) % themes.length]);
   };
@@ -65,7 +67,7 @@ function App() {
           <span className="text-lg">📡</span>
           <span className="font-semibold">RSS Reader</span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowOPML(true)}
@@ -80,17 +82,17 @@ function App() {
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Refresh (R)"
           >
-            {isRefreshing ? '⏳' : '🔄'}
+            {isRefreshing ? "⏳" : "🔄"}
           </button>
-          
+
           <button
             onClick={handleToggleTheme}
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Toggle Theme (M)"
           >
-            {theme === 'dark' ? '☀️' : theme === 'light' ? '🌙' : '🌙'}
+            {theme === "dark" ? "☀️" : theme === "light" ? "🌙" : "🌙"}
           </button>
-          
+
           <button
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Settings"
@@ -103,7 +105,7 @@ function App() {
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <ArticleList 
+        <ArticleList
           onSelectArticle={setSelectedArticle}
           selectedArticleId={selectedArticle?.id || null}
         />
@@ -113,8 +115,8 @@ function App() {
       {/* Status bar */}
       <footer className="h-6 flex items-center justify-between px-4 border-t border-border bg-muted/20 text-xs text-muted-foreground">
         <span>
-          {articles.length} articles 
-          {selectedArticle && ' • Selected'}
+          {articles.length} articles
+          {selectedArticle && " • Selected"}
         </span>
         <span>Press ? for keyboard shortcuts</span>
       </footer>

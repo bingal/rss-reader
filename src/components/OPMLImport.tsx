@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { exportToOPML, downloadOPML, importFromOPML } from '@/lib/opml';
-import { useAppStore } from '@/stores/useAppStore';
-import { cn } from '@/lib/utils';
+import { useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { exportToOPML, downloadOPML, importFromOPML } from "@/lib/opml";
+import { useAppStore } from "@/stores/useAppStore";
+import { cn } from "@/lib/utils";
 
 interface OPMLImportProps {
   isOpen: boolean;
@@ -10,15 +10,20 @@ interface OPMLImportProps {
 }
 
 export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
-  const [tab, setTab] = useState<'import' | 'export'>('import');
-  const [fileContent, setFileContent] = useState('');
+  const [tab, setTab] = useState<"import" | "export">("import");
+  const [fileContent, setFileContent] = useState("");
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ count: number; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    count: number;
+    errors: string[];
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { feeds } = useAppStore();
   const queryClient = useQueryClient();
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -28,13 +33,13 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
 
   const handleImport = async () => {
     if (!fileContent.trim()) return;
-    
+
     setImporting(true);
     try {
       const result = await importFromOPML(fileContent);
       setImportResult(result);
       if (result.count > 0) {
-        queryClient.invalidateQueries({ queryKey: ['feeds'] });
+        queryClient.invalidateQueries({ queryKey: ["feeds"] });
       }
     } catch (e) {
       setImportResult({ count: 0, errors: [`Import failed: ${e}`] });
@@ -44,7 +49,7 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
 
   const handleExport = async () => {
     const content = await exportToOPML(feeds);
-    downloadOPML(content, 'rss-reader-subscriptions.opml');
+    downloadOPML(content, "rss-reader-subscriptions.opml");
   };
 
   if (!isOpen) return null;
@@ -66,23 +71,23 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
         {/* Tabs */}
         <div className="flex border-b border-border">
           <button
-            onClick={() => setTab('import')}
+            onClick={() => setTab("import")}
             className={cn(
-              'flex-1 px-4 py-2 text-sm font-medium transition-colors',
-              tab === 'import'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:text-foreground'
+              "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+              tab === "import"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             Import
           </button>
           <button
-            onClick={() => setTab('export')}
+            onClick={() => setTab("export")}
             className={cn(
-              'flex-1 px-4 py-2 text-sm font-medium transition-colors',
-              tab === 'export'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-muted-foreground hover:text-foreground'
+              "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+              tab === "export"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             Export
@@ -91,12 +96,12 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
 
         {/* Content */}
         <div className="p-4">
-          {tab === 'import' ? (
+          {tab === "import" ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Select an OPML file to import RSS feeds from other readers.
               </p>
-              
+
               <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                 <input
                   ref={fileInputRef}
@@ -118,7 +123,9 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
 
               {fileContent && (
                 <div className="text-sm">
-                  <p className="text-muted-foreground mb-2">Selected file preview:</p>
+                  <p className="text-muted-foreground mb-2">
+                    Selected file preview:
+                  </p>
                   <pre className="bg-muted p-2 rounded text-xs overflow-auto max-h-32">
                     {fileContent.slice(0, 500)}...
                   </pre>
@@ -126,12 +133,14 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
               )}
 
               {importResult && (
-                <div className={cn(
-                  'p-3 rounded text-sm',
-                  importResult.count > 0
-                    ? 'bg-green-500/10 text-green-500'
-                    : 'bg-destructive/10 text-destructive'
-                )}>
+                <div
+                  className={cn(
+                    "p-3 rounded text-sm",
+                    importResult.count > 0
+                      ? "bg-green-500/10 text-green-500"
+                      : "bg-destructive/10 text-destructive",
+                  )}
+                >
                   Imported {importResult.count} feeds
                   {importResult.errors.length > 0 && (
                     <ul className="mt-2 text-xs">
@@ -155,18 +164,21 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
                   disabled={!fileContent.trim() || importing}
                   className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {importing ? 'Importing...' : 'Import'}
+                  {importing ? "Importing..." : "Import"}
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Export your RSS feeds to OPML format. You can import this file into other RSS readers.
+                Export your RSS feeds to OPML format. You can import this file
+                into other RSS readers.
               </p>
 
               <div className="bg-muted rounded-lg p-4">
-                <p className="text-sm font-medium mb-2">{feeds.length} feeds will be exported</p>
+                <p className="text-sm font-medium mb-2">
+                  {feeds.length} feeds will be exported
+                </p>
                 <ul className="text-xs text-muted-foreground space-y-1">
                   {feeds.slice(0, 5).map((feed) => (
                     <li key={feed.id}>• {feed.title}</li>

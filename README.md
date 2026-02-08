@@ -64,15 +64,15 @@ npm run tauri build
 
 ### Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Next article |
-| `k` / `↑` | Previous article |
-| `o` / `Enter` | Open in browser |
-| `r` | Refresh feeds |
-| `m` | Toggle theme |
-| `s` | Toggle star |
-| `?` | Show shortcuts |
+| Key           | Action           |
+| ------------- | ---------------- |
+| `j` / `↓`     | Next article     |
+| `k` / `↑`     | Previous article |
+| `o` / `Enter` | Open in browser  |
+| `r`           | Refresh feeds    |
+| `m`           | Toggle theme     |
+| `s`           | Toggle star      |
+| `?`           | Show shortcuts   |
 
 ### OPML Import/Export
 
@@ -153,6 +153,7 @@ This project uses GitHub Actions for automated builds on macOS, Windows, and Lin
 **Workflow**: [`.github/workflows/build.yml`](.github/workflows/build.yml)
 
 **Triggers**:
+
 - Push to `main` branch
 - Pull requests to `main`
 - Creating a release tag (e.g., `v1.0.0`)

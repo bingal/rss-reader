@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { useAppStore, Article } from '@/stores/useAppStore';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useAppStore, Article } from "@/stores/useAppStore";
+import { cn } from "@/lib/utils";
 
 interface ArticleViewProps {
   article: Article | null;
@@ -10,42 +10,44 @@ interface ArticleViewProps {
 export function ArticleView({ article }: ArticleViewProps) {
   const { feeds } = useAppStore();
   const [translating, setTranslating] = useState(false);
-  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [translatedContent, setTranslatedContent] = useState<string | null>(
+    null,
+  );
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getFeedTitle = (feedId: string) => {
     const feed = feeds.find((f) => f.id === feedId);
-    return feed?.title || 'Unknown Feed';
+    return feed?.title || "Unknown Feed";
   };
 
   const handleOpenOriginal = () => {
     if (article) {
-      invoke('open', { path: article.link }).catch(console.error);
+      invoke("open", { path: article.link }).catch(console.error);
     }
   };
 
   const handleTranslate = async () => {
     if (!article || translating) return;
-    
+
     setTranslating(true);
     try {
-      const content = article.content || article.summary || '';
-      const result = await invoke<string>('translate_text', { 
+      const content = article.content || article.summary || "";
+      const result = await invoke<string>("translate_text", {
         text: content.slice(0, 5000), // Limit to 5000 chars
-        targetLang: 'zh' 
+        targetLang: "zh",
       });
       setTranslatedContent(result);
     } catch (e) {
-      console.error('Translation failed:', e);
+      console.error("Translation failed:", e);
     }
     setTranslating(false);
   };
@@ -53,7 +55,7 @@ export function ArticleView({ article }: ArticleViewProps) {
   const handleToggleStar = async () => {
     if (!article) return;
     const newStarred = article.isStarred === 0;
-    await invoke('toggle_starred', { id: article.id, starred: newStarred });
+    await invoke("toggle_starred", { id: article.id, starred: newStarred });
   };
 
   if (!article) {
@@ -67,7 +69,8 @@ export function ArticleView({ article }: ArticleViewProps) {
     );
   }
 
-  const displayContent = translatedContent || (article.content || article.summary || '');
+  const displayContent =
+    translatedContent || article.content || article.summary || "";
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -88,17 +91,17 @@ export function ArticleView({ article }: ArticleViewProps) {
               <span>{formatDate(article.pubDate)}</span>
             </div>
           </div>
-          
+
           <button
             onClick={handleToggleStar}
             className={cn(
-              'text-xl transition-transform hover:scale-110',
-              article.isStarred === 1 ? '⭐' : '☆'
+              "text-xl transition-transform hover:scale-110",
+              article.isStarred === 1 ? "⭐" : "☆",
             )}
             title="Toggle star"
           />
         </div>
-        
+
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <button
             onClick={handleOpenOriginal}
@@ -111,7 +114,7 @@ export function ArticleView({ article }: ArticleViewProps) {
             disabled={translating}
             className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors disabled:opacity-50"
           >
-            {translating ? '🌐 Translating...' : '🌐 Translate to Chinese'}
+            {translating ? "🌐 Translating..." : "🌐 Translate to Chinese"}
           </button>
         </div>
       </div>
@@ -121,13 +124,15 @@ export function ArticleView({ article }: ArticleViewProps) {
         {translatedContent && (
           <div className="mb-4 p-3 bg-muted rounded text-sm">
             <p className="text-muted-foreground mb-2">📝 Translated content:</p>
-            <div 
+            <div
               className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: translatedContent.replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{
+                __html: translatedContent.replace(/\n/g, "<br/>"),
+              }}
             />
           </div>
         )}
-        <div 
+        <div
           className="prose prose-sm dark:prose-invert max-w-none"
           dangerouslySetInnerHTML={{ __html: displayContent }}
         />

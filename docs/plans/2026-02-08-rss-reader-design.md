@@ -16,17 +16,17 @@ A fast, comfortable RSS reader desktop application built with Tauri 2.x, React, 
 
 ### MVP Features
 
-| Priority | Feature | Description |
-|----------|---------|-------------|
-| P0 | RSS Subscription | Add/remove RSS feeds by URL |
-| P0 | Article List | Two-column layout, chronological order |
-| P0 | Article Reader | Clean reading view with lazy image loading |
-| P0 | Theme System | Light/Dark/System auto-switch |
-| P0 | OPML Import/Export | Batch import/export feed subscriptions |
-| P1 | Keyboard Shortcuts | j/k navigation, basic shortcuts |
-| P1 | Article Translation | Built-in translation support |
-| P1 | Keyboard Shortcuts | j/k navigation |
-| P2 | Starred Articles | Bookmark important articles |
+| Priority | Feature             | Description                                |
+| -------- | ------------------- | ------------------------------------------ |
+| P0       | RSS Subscription    | Add/remove RSS feeds by URL                |
+| P0       | Article List        | Two-column layout, chronological order     |
+| P0       | Article Reader      | Clean reading view with lazy image loading |
+| P0       | Theme System        | Light/Dark/System auto-switch              |
+| P0       | OPML Import/Export  | Batch import/export feed subscriptions     |
+| P1       | Keyboard Shortcuts  | j/k navigation, basic shortcuts            |
+| P1       | Article Translation | Built-in translation support               |
+| P1       | Keyboard Shortcuts  | j/k navigation                             |
+| P2       | Starred Articles    | Bookmark important articles                |
 
 ### Out of Scope (MVP)
 
@@ -160,7 +160,7 @@ interface Article {
   fetchedAt: number;
 }
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = "light" | "dark" | "system";
 
 interface AppSettings {
   theme: Theme;
@@ -223,30 +223,30 @@ interface AppSettings {
 
 ## API Design (Tauri Commands)
 
-| Command | Description | Arguments | Returns |
-|---------|-------------|-----------|---------|
-| `feeds:list` | Get all feeds | - | `Feed[]` |
-| `feeds:add` | Add new feed | `{ url: string }` | `Feed` |
-| `feeds:remove` | Remove feed | `{ id: string }` | `void` |
-| `feeds:import_opml` | Import OPML | `{ content: string }` | `number` |
-| `feeds:export_opml` | Export OPML | - | `string` |
-| `articles:get` | Get articles | `{ feedId?: string, limit: number, offset: number }` | `Article[]` |
-| `articles:mark_read` | Mark as read | `{ id: string, read: boolean }` | `void` |
-| `articles:toggle_star` | Toggle star | `{ id: string, starred: boolean }` | `void` |
-| `settings:get` | Get setting | `{ key: string }` | `string \| null` |
-| `settings:set` | Set setting | `{ key: string, value: string }` | `void` |
+| Command                | Description   | Arguments                                            | Returns          |
+| ---------------------- | ------------- | ---------------------------------------------------- | ---------------- |
+| `feeds:list`           | Get all feeds | -                                                    | `Feed[]`         |
+| `feeds:add`            | Add new feed  | `{ url: string }`                                    | `Feed`           |
+| `feeds:remove`         | Remove feed   | `{ id: string }`                                     | `void`           |
+| `feeds:import_opml`    | Import OPML   | `{ content: string }`                                | `number`         |
+| `feeds:export_opml`    | Export OPML   | -                                                    | `string`         |
+| `articles:get`         | Get articles  | `{ feedId?: string, limit: number, offset: number }` | `Article[]`      |
+| `articles:mark_read`   | Mark as read  | `{ id: string, read: boolean }`                      | `void`           |
+| `articles:toggle_star` | Toggle star   | `{ id: string, starred: boolean }`                   | `void`           |
+| `settings:get`         | Get setting   | `{ key: string }`                                    | `string \| null` |
+| `settings:set`         | Set setting   | `{ key: string, value: string }`                     | `void`           |
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `j` | Next article |
-| `k` | Previous article |
-| `v` | Open in browser |
-| `r` | Refresh feeds |
-| `m` | Toggle theme |
-| `s` | Toggle star |
-| `?` | Show help |
+| Shortcut | Action           |
+| -------- | ---------------- |
+| `j`      | Next article     |
+| `k`      | Previous article |
+| `v`      | Open in browser  |
+| `r`      | Refresh feeds    |
+| `m`      | Toggle theme     |
+| `s`      | Toggle star      |
+| `?`      | Show help        |
 
 ## Milestones
 
@@ -283,24 +283,24 @@ interface AppSettings {
 
 ### Functional Tests
 
-| Feature | Test Case | Expected Result |
-|---------|-----------|-----------------|
-| RSS Subscription | Add valid RSS URL | Articles displayed |
-| OPML Import | Import standard OPML | All feeds imported |
-| Theme Switch | Toggle light/dark/system | Colors update |
-| Article Reading | Click article | Content renders correctly |
-| Lazy Loading | Default state | Images not loaded |
-| Keyboard | Press j/k | Focus moves correctly |
-| Persistence | Restart app | Data retained |
+| Feature          | Test Case                | Expected Result           |
+| ---------------- | ------------------------ | ------------------------- |
+| RSS Subscription | Add valid RSS URL        | Articles displayed        |
+| OPML Import      | Import standard OPML     | All feeds imported        |
+| Theme Switch     | Toggle light/dark/system | Colors update             |
+| Article Reading  | Click article            | Content renders correctly |
+| Lazy Loading     | Default state            | Images not loaded         |
+| Keyboard         | Press j/k                | Focus moves correctly     |
+| Persistence      | Restart app              | Data retained             |
 
 ### Performance Targets
 
-| Metric | Target |
-|--------|--------|
-| App startup | < 2 seconds |
-| Article list (1000 items) | < 500ms |
-| RSS refresh (10 feeds) | < 5 seconds |
-| Memory usage | < 100MB |
+| Metric                    | Target      |
+| ------------------------- | ----------- |
+| App startup               | < 2 seconds |
+| Article list (1000 items) | < 500ms     |
+| RSS refresh (10 feeds)    | < 5 seconds |
+| Memory usage              | < 100MB     |
 
 ## GitHub Repository
 

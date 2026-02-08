@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-export type Theme = 'light' | 'dark' | 'system';
-export type ArticleFilter = 'all' | 'unread' | 'starred';
+export type Theme = "light" | "dark" | "system";
+export type ArticleFilter = "all" | "unread" | "starred";
 
 export interface Feed {
   id: string;
@@ -33,24 +33,24 @@ interface AppState {
   // Theme
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  
+
   // Selected feed
   selectedFeedId: string | null;
   setSelectedFeedId: (id: string | null) => void;
-  
+
   // Filter
   filter: ArticleFilter;
   setFilter: (filter: ArticleFilter) => void;
-  
+
   // View mode
   isSettingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
-  
+
   // Articles
   readArticleIds: Set<string>;
   markArticleAsRead: (id: string) => void;
   isArticleRead: (id: string) => boolean;
-  
+
   // Feeds
   feeds: Feed[];
   setFeeds: (feeds: Feed[]) => void;
@@ -60,21 +60,21 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       // Theme
-      theme: 'system',
+      theme: "system",
       setTheme: (theme) => set({ theme }),
-      
+
       // Selected feed
       selectedFeedId: null,
-      setSelectedFeedId: (id) => set({ selectedFeedId: id, filter: 'all' }),
-      
+      setSelectedFeedId: (id) => set({ selectedFeedId: id, filter: "all" }),
+
       // Filter
-      filter: 'all',
+      filter: "all",
       setFilter: (filter) => set({ filter }),
-      
+
       // View mode
       isSettingsOpen: false,
       setSettingsOpen: (open) => set({ isSettingsOpen: open }),
-      
+
       // Articles
       readArticleIds: new Set(),
       markArticleAsRead: (id) =>
@@ -82,20 +82,20 @@ export const useAppStore = create<AppState>()(
           readArticleIds: new Set([...state.readArticleIds, id]),
         })),
       isArticleRead: (id) => get().readArticleIds.has(id),
-      
+
       // Feeds
       feeds: [],
       setFeeds: (feeds) => set({ feeds }),
     }),
     {
-      name: 'rss-reader-storage',
+      name: "rss-reader-storage",
       partialize: (state) => ({
         theme: state.theme,
         readArticleIds: Array.from(state.readArticleIds),
         feeds: state.feeds,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Helper to sync readArticleIds from Array to Set when loading
