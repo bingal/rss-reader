@@ -72,7 +72,7 @@ pub fn fetch_and_save_feed(url: &str, feed_id: &str) -> Result<i64, String> {
     // Update feed timestamp
     conn.execute(
         "UPDATE feeds SET updated_at = ? WHERE id = ?",
-        [now.to_string(), feed_id],
+        [now.to_string(), feed_id.to_string()],
     ).ok();
     
     Ok(saved_count)
@@ -83,21 +83,26 @@ fn convert_feed_to_articles(feed: &RSSFeed) -> Result<Vec<Article>, String> {
     let now = chrono::Utc::now().timestamp();
     
     for entry in feed.entries.iter() {
-        let link = entry.link.as_ref()
+        // Get link from links vector
+        let link = entry.links.first()
             .map(|l| l.href.clone())
             .unwrap_or_else(|| Uuid::new_v4().to_string());
         
         let id = Uuid::new_v4().to_string();
         
-        let title = entry.title.clone().unwrap_or_else(|| "Untitled".to_string());
+        // Get title text
+        let title = entry.title.as_ref()
+            .map(|t| t.content.clone())
+            .unwrap_or_else(|| "Untitled".to_string());
         
         // Extract content
         let (content, summary) = extract_content(entry);
         
+        // Get author
         let author = entry.authors.first()
             .map(|a| a.name.clone())
-            .or(entry.source.as_ref().map(|s| s.title.clone()))
-            .or(feed.title.clone().map(|t| t.content));
+            .or_else(|| entry.source.as_ref().and_then(|s| s.title.as_ref().map(|t| t.content.clone())))
+            .or_else(|| feed.title.as_ref().map(|t| t.content.clone()));
         
         let pub_date = entry.published
             .or(entry.updated)
@@ -127,12 +132,12 @@ fn convert_feed_to_articles(feed: &RSSFeed) -> Result<Vec<Article>, String> {
 fn extract_content(entry: &Entry) -> (String, Option<String>) {
     // Prefer content over summary
     let content = entry.content.as_ref()
-        .or(entry.summary.as_ref())
-        .and_then(|c| c.content.clone())
+        .and_then(|c| c.body.clone())
+        .or_else(|| entry.summary.as_ref().map(|s| s.content.clone()))
         .unwrap_or_default();
     
     let summary = entry.summary.as_ref()
-        .and_then(|s| s.content.clone())
+        .map(|s| s.content.clone())
         .filter(|s| !s.is_empty() && s != &content);
     
     // Extract summary from content if needed

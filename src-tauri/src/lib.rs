@@ -1,5 +1,3 @@
-use tauri::Manager;
-
 // Import modules
 mod db;
 mod rss;
@@ -9,7 +7,7 @@ use db::{
     mark_article_read, toggle_article_starred, get_setting, set_setting,
     Feed, Article,
 };
-use rss::{fetch_feed, fetch_and_save_feed};
+use rss::fetch_and_save_feed;
 
 #[tauri::command]
 fn greet(name: &str) -> String {

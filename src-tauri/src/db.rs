@@ -104,7 +104,8 @@ pub fn init_db() -> Result<Connection> {
 #[tauri::command]
 pub fn get_feeds() -> Result<Vec<Feed>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, title, url, description, image_url, category, created_at, updated_at FROM feeds ORDER BY title")?;
+    let mut stmt = conn.prepare("SELECT id, title, url, description, image_url, category, created_at, updated_at FROM feeds ORDER BY title")
+        .map_err(|e| e.to_string())?;
     let feeds = stmt.query_map([], |row| {
         Ok(Feed {
             id: row.get(0)?,
@@ -116,7 +117,8 @@ pub fn get_feeds() -> Result<Vec<Feed>, String> {
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
         })
-    })?.collect::<Result<Vec<Feed>, _>>().map_err(|e| e.to_string())?;
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<Feed>, _>>().map_err(|e| e.to_string())?;
     Ok(feeds)
 }
 
@@ -200,7 +202,7 @@ pub fn get_articles(
     params.push(limit.to_string());
     params.push(offset.to_string());
     
-    let mut stmt = conn.prepare(&query)?;
+    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
     let articles = stmt.query_map(params.as_slice(), |row| {
         Ok(Article {
             id: row.get(0)?,
@@ -215,7 +217,8 @@ pub fn get_articles(
             is_starred: row.get(9)?,
             fetched_at: row.get(10)?,
         })
-    })?.collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?;
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<Article>, _>>().map_err(|e| e.to_string())?;
     
     Ok(articles)
 }
