@@ -1,4 +1,4 @@
-name: Build Multi-Platform App
+name: Build Multi-Platform RSS Reader App
 
 on:
   push:
