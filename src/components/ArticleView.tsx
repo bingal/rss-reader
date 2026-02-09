@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore, Article } from "@/stores/useAppStore";
-import { cn } from "@/lib/utils";
+import { Icon } from "@iconify-icon/react";
 
 interface ArticleViewProps {
   article: Article | null;
@@ -62,7 +62,10 @@ export function ArticleView({ article }: ArticleViewProps) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
         <div className="text-center">
-          <p className="text-4xl mb-4">📰</p>
+          <Icon
+            icon="mdi:newspaper-variant"
+            className="text-6xl mx-auto mb-4 text-muted-foreground"
+          />
           <p>Select an article to read</p>
         </div>
       </div>
@@ -81,11 +84,13 @@ export function ArticleView({ article }: ArticleViewProps) {
             <h1 className="text-xl font-semibold mb-2">{article.title}</h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
-                <span>📰</span> {getFeedTitle(article.feedId)}
+                <Icon icon="mdi:newspaper-variant" className="text-sm" />{" "}
+                {getFeedTitle(article.feedId)}
               </span>
               {article.author && (
                 <span className="flex items-center gap-1">
-                  <span>👤</span> {article.author}
+                  <Icon icon="mdi:account" className="text-sm" />{" "}
+                  {article.author}
                 </span>
               )}
               <span>{formatDate(article.pubDate)}</span>
@@ -94,12 +99,14 @@ export function ArticleView({ article }: ArticleViewProps) {
 
           <button
             onClick={handleToggleStar}
-            className={cn(
-              "text-xl transition-transform hover:scale-110",
-              article.isStarred === 1 ? "⭐" : "☆",
-            )}
+            className="text-xl transition-transform hover:scale-110"
             title="Toggle star"
-          />
+          >
+            <Icon
+              icon={article.isStarred === 1 ? "mdi:star" : "mdi:star-outline"}
+              className={article.isStarred === 1 ? "text-yellow-500" : ""}
+            />
+          </button>
         </div>
 
         <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -112,9 +119,18 @@ export function ArticleView({ article }: ArticleViewProps) {
           <button
             onClick={handleTranslate}
             disabled={translating}
-            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors disabled:opacity-50"
+            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {translating ? "🌐 Translating..." : "🌐 Translate to Chinese"}
+            {translating ? (
+              <>
+                <Icon icon="mdi:loading" className="animate-spin" />{" "}
+                Translating...
+              </>
+            ) : (
+              <>
+                <Icon icon="mdi:translate" /> Translate to Chinese
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -123,7 +139,9 @@ export function ArticleView({ article }: ArticleViewProps) {
       <div className="flex-1 overflow-y-auto p-6">
         {translatedContent && (
           <div className="mb-4 p-3 bg-muted rounded text-sm">
-            <p className="text-muted-foreground mb-2">📝 Translated content:</p>
+            <p className="text-muted-foreground mb-2 flex items-center gap-1">
+              <Icon icon="mdi:file-document-edit" /> Translated content:
+            </p>
             <div
               className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{

@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { exportToOPML, downloadOPML, importFromOPML } from "@/lib/opml";
 import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
+import { Icon } from "@iconify-icon/react";
 
 interface OPMLImportProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export function OPMLImport({ isOpen, onClose }: OPMLImportProps) {
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
           >
-            ✕
+            <Icon icon="mdi:close" className="text-xl" />
           </button>
         </div>
 

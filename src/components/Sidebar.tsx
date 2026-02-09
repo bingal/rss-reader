@@ -3,6 +3,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore, Feed } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
+import { Icon } from "@iconify-icon/react";
+
+// Extract domain from URL to use as default feed name
+function extractDomainFromUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace(/^www\./, "");
+  } catch {
+    return "New Feed";
+  }
+}
 
 export function Sidebar() {
   const { feeds, setFeeds, selectedFeedId, setSelectedFeedId } = useAppStore();
@@ -26,7 +37,7 @@ export function Sidebar() {
 
   const addFeedMutation = useMutation({
     mutationFn: async (url: string) => {
-      const title = "New Feed";
+      const title = extractDomainFromUrl(url);
       await invoke<Feed>("add_new_feed", {
         title,
         url,
@@ -49,13 +60,6 @@ export function Sidebar() {
 
   return (
     <div className="w-64 bg-muted/30 border-r border-border flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-border">
-        <h1 className="text-lg font-semibold flex items-center gap-2">
-          <span className="text-primary">📡</span> RSS Reader
-        </h1>
-      </div>
-
       {/* Feed list */}
       <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
@@ -68,13 +72,17 @@ export function Sidebar() {
             <button
               onClick={() => setSelectedFeedId(null)}
               className={cn(
-                "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
                 selectedFeedId === null
                   ? "bg-primary/10 text-primary font-medium"
                   : "hover:bg-muted",
               )}
             >
-              📰 All Articles
+              <Icon
+                icon="mdi:newspaper-variant-multiple"
+                className="text-base"
+              />
+              All Articles
             </button>
 
             {/* Individual feeds */}
@@ -129,7 +137,7 @@ export function Sidebar() {
             onClick={() => setIsAdding(true)}
             className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors flex items-center gap-2"
           >
-            <span>+</span> Add Feed
+            <Icon icon="mdi:plus" className="text-base" /> Add Feed
           </button>
         )}
       </div>

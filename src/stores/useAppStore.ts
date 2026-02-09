@@ -4,6 +4,12 @@ import { persist } from "zustand/middleware";
 export type Theme = "light" | "dark" | "system";
 export type ArticleFilter = "all" | "unread" | "starred";
 
+export interface TranslationSettings {
+  apiKey: string;
+  baseUrl: string;
+  prompt: string;
+}
+
 export interface Feed {
   id: string;
   title: string;
@@ -54,6 +60,10 @@ interface AppState {
   // Feeds
   feeds: Feed[];
   setFeeds: (feeds: Feed[]) => void;
+
+  // Settings
+  settings: TranslationSettings;
+  updateSettings: (settings: Partial<TranslationSettings>) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -86,6 +96,17 @@ export const useAppStore = create<AppState>()(
       // Feeds
       feeds: [],
       setFeeds: (feeds) => set({ feeds }),
+
+      // Settings
+      settings: {
+        apiKey: "",
+        baseUrl: "https://libretranslate.com",
+        prompt: "Translate the following text to Chinese:",
+      },
+      updateSettings: (newSettings) =>
+        set((state) => ({
+          settings: { ...state.settings, ...newSettings },
+        })),
     }),
     {
       name: "rss-reader-storage",
@@ -93,6 +114,7 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         readArticleIds: Array.from(state.readArticleIds),
         feeds: state.feeds,
+        settings: state.settings,
       }),
     },
   ),

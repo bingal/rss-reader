@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useQuery } from "@tanstack/react-query";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
+import { Icon } from "@iconify-icon/react";
 
 interface ArticleListProps {
   onSelectArticle: (article: Article) => void;
@@ -105,7 +106,7 @@ export function ArticleList({
                 {/* Star indicator */}
                 {article.isStarred === 1 && (
                   <span className="absolute top-2 right-2 text-yellow-500">
-                    ⭐
+                    <Icon icon="mdi:star" className="text-base" />
                   </span>
                 )}
 

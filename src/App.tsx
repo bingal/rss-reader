@@ -3,16 +3,19 @@ import { Sidebar } from "./components/Sidebar";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { OPMLImport } from "./components/OPMLImport";
+import { Settings } from "./components/Settings";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
+import { Icon } from "@iconify-icon/react";
 
 function App() {
   const { theme, setTheme } = useAppStore();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const queryClient = useQueryClient();
 
   // Get articles from query cache for keyboard navigation
@@ -64,7 +67,7 @@ function App() {
       {/* Title bar */}
       <header className="h-12 flex items-center justify-between px-4 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📡</span>
+          <Icon icon="mdi:rss-box" className="text-xl text-primary" />
           <span className="font-semibold">RSS Reader</span>
         </div>
 
@@ -74,7 +77,7 @@ function App() {
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Import/Export OPML"
           >
-            📥
+            <Icon icon="mdi:database-import" className="text-lg" />
           </button>
           <button
             onClick={handleRefresh}
@@ -82,7 +85,11 @@ function App() {
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Refresh (R)"
           >
-            {isRefreshing ? "⏳" : "🔄"}
+            {isRefreshing ? (
+              <Icon icon="mdi:loading" className="text-lg animate-spin" />
+            ) : (
+              <Icon icon="mdi:refresh" className="text-lg" />
+            )}
           </button>
 
           <button
@@ -90,14 +97,19 @@ function App() {
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Toggle Theme (M)"
           >
-            {theme === "dark" ? "☀️" : theme === "light" ? "🌙" : "🌙"}
+            {theme === "dark" ? (
+              <Icon icon="mdi:white-balance-sunny" className="text-lg" />
+            ) : (
+              <Icon icon="mdi:moon-waning-crescent" className="text-lg" />
+            )}
           </button>
 
           <button
+            onClick={() => setShowSettings(true)}
             className="p-1.5 rounded hover:bg-muted transition-colors"
             title="Settings"
           >
-            ⚙️
+            <Icon icon="mdi:cog" className="text-lg" />
           </button>
         </div>
       </header>
@@ -123,6 +135,9 @@ function App() {
 
       {/* OPML Modal */}
       <OPMLImport isOpen={showOPML} onClose={() => setShowOPML(false)} />
+
+      {/* Settings Modal */}
+      <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

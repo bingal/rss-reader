@@ -35,15 +35,52 @@ export async function importFromOPML(
   let count = 0;
 
   try {
-    // Parse XML (simplified - in production use a proper XML parser)
-    const outlineRegex =
-      /<outline[^>]+xmlUrl="([^"]+)"[^>]*text="([^"]+)"[^>]*>/g;
-    let match;
+    // Use DOMParser to properly handle nested OPML structures
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(opmlContent, "text/xml");
 
-    while ((match = outlineRegex.exec(opmlContent)) !== null) {
-      const url = match[1];
-      const title = match[2];
+    // Check for parsing errors
+    const parseError = doc.querySelector("parsererror");
+    if (parseError) {
+      throw new Error("XML parsing failed");
+    }
 
+    // Recursively extract all RSS feeds from nested outline structures
+    const rssOutlines: Array<{ title: string; url: string }> = [];
+
+    function extractOutlines(node: Element) {
+      if (node.tagName === "outline") {
+        const type = node.getAttribute("type");
+        const xmlUrl = node.getAttribute("xmlUrl");
+        const text =
+          node.getAttribute("text") || node.getAttribute("title") || "Unknown";
+
+        if (type === "rss" && xmlUrl) {
+          rssOutlines.push({ title: text, url: xmlUrl });
+        }
+
+        // Recursively process child outline elements
+        for (const child of Array.from(node.children)) {
+          extractOutlines(child);
+        }
+      }
+    }
+
+    // Start from body element and process all outlines
+    const body = doc.querySelector("body");
+    if (body) {
+      for (const child of Array.from(body.children)) {
+        extractOutlines(child);
+      }
+    } else {
+      // Fallback: query all outline elements
+      for (const outline of Array.from(doc.querySelectorAll("outline"))) {
+        extractOutlines(outline);
+      }
+    }
+
+    // Import extracted feeds
+    for (const { title, url } of rssOutlines) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("add_new_feed", {

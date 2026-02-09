@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { exportToOPML, escapeXml } from "@/lib/opml";
+import { describe, it, expect, vi } from "vitest";
+import { exportToOPML, importFromOPML, escapeXml } from "@/lib/opml";
+
+// Mock Tauri invoke
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("OPML Utilities", () => {
   const mockFeeds = [
@@ -78,6 +83,78 @@ describe("OPML Utilities", () => {
 
     it("should escape apostrophes", () => {
       expect(escapeXml("A 'B'")).toBe("A &apos;B&apos;");
+    });
+  });
+
+  describe("importFromOPML", () => {
+    it("should handle nested OPML structure", async () => {
+      const nestedOPML = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Test</title></head>
+  <body>
+    <outline text="Category">
+      <outline type="rss" text="Feed 1" xmlUrl="https://feed1.com/rss"/>
+      <outline type="rss" text="Feed 2" xmlUrl="https://feed2.com/rss"/>
+    </outline>
+  </body>
+</opml>`;
+
+      const result = await importFromOPML(nestedOPML);
+      expect(result.count).toBe(2);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("should handle flat OPML structure", async () => {
+      const flatOPML = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Test</title></head>
+  <body>
+    <outline type="rss" text="Feed 1" xmlUrl="https://feed1.com/rss"/>
+    <outline type="rss" text="Feed 2" xmlUrl="https://feed2.com/rss"/>
+  </body>
+</opml>`;
+
+      const result = await importFromOPML(flatOPML);
+      expect(result.count).toBe(2);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("should handle deeply nested structure", async () => {
+      const deepOPML = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Test</title></head>
+  <body>
+    <outline text="Level 1">
+      <outline text="Level 2">
+        <outline type="rss" text="Deep Feed" xmlUrl="https://deep.com/rss"/>
+      </outline>
+    </outline>
+  </body>
+</opml>`;
+
+      const result = await importFromOPML(deepOPML);
+      expect(result.count).toBe(1);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("should handle hn-blogs.opml format", async () => {
+      // Simulate the actual hn-blogs.opml structure
+      const hnBlogsOPML = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Blog Feeds</title>
+  </head>
+  <body>
+    <outline text="Blogs" title="Blogs">
+      <outline type="rss" text="simonwillison.net" title="simonwillison.net" xmlUrl="https://simonwillison.net/atom/everything/" htmlUrl="https://simonwillison.net"/>
+      <outline type="rss" text="jeffgeerling.com" title="jeffgeerling.com" xmlUrl="https://www.jeffgeerling.com/blog.xml" htmlUrl="https://jeffgeerling.com"/>
+    </outline>
+  </body>
+</opml>`;
+
+      const result = await importFromOPML(hnBlogsOPML);
+      expect(result.count).toBe(2);
+      expect(result.errors).toHaveLength(0);
     });
   });
 });
