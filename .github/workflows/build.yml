@@ -51,7 +51,7 @@ jobs:
       - name: Run tests
         run: npm run test:run
 
-  # Build for macOS
+  # Build for macOS (unsigned)
   build-macos:
     name: Build macOS
     runs-on: macos-14
@@ -78,15 +78,9 @@ jobs:
       - name: Build macOS app (unsigned)
         run: |
           export MACOSX_DEPLOYMENT_TARGET=10.13
-          npm run tauri build -- --target universal-apple-darwin --ci
-        env:
-          # Disable code signing for CI builds
-          APPLE_CERTIFICATE: ""
-          APPLE_SIGNING_IDENTITY: ""
-          # Notarize only if secrets are available (release builds)
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          export CI=true
+          # Build without signing - do not set APPLE_SIGNING_IDENTITY
+          npm run tauri build -- --target universal-apple-darwin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -169,7 +163,6 @@ jobs:
         run: |
           wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -O /tmp/linuxdeploy-x86_64.AppImage
           chmod +x /tmp/linuxdeploy-x86_64.AppImage
-          # Extract and install to system
           cd /tmp
           ./linuxdeploy-x86_64.AppImage --appimage-extract
           sudo cp squashfs-root/usr/bin/linuxdeploy /usr/local/bin/
@@ -177,7 +170,6 @@ jobs:
       - name: Build Linux app
         run: npm run tauri build
         env:
-          # Use system linuxdeploy
           LINUXDEPLOY: /usr/local/bin/linuxdeploy
 
       - name: Upload artifacts
