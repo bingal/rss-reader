@@ -1,6 +1,6 @@
 [package]
 name = "rss-reader"
-version = "0.1.2"
+version = "0.1.3"
 description = "A fast, comfortable RSS reader desktop app"
 authors = ["bingal"]
 edition = "2021"
