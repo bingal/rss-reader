@@ -105,6 +105,7 @@ await invoke<Feed>("add_new_feed", { title, url, description, category });
 ```
 
 Available commands (defined in `src-tauri/src/lib.rs`):
+
 - `get_all_feeds` - List all subscribed feeds
 - `add_new_feed` - Subscribe to a new feed
 - `delete_feed` - Remove a feed and its articles
@@ -121,12 +122,14 @@ Available commands (defined in `src-tauri/src/lib.rs`):
 Three main tables managed in `src-tauri/src/db.rs`:
 
 **feeds**: RSS subscriptions
+
 - `id` (TEXT PRIMARY KEY)
 - `title`, `url` (TEXT, UNIQUE)
 - `description`, `image_url`, `category` (TEXT, optional)
 - `created_at`, `updated_at` (INTEGER, unix timestamp)
 
 **articles**: Feed entries
+
 - `id` (TEXT PRIMARY KEY)
 - `feed_id` (TEXT, FOREIGN KEY)
 - `title`, `link`, `content`, `summary` (TEXT)
@@ -135,12 +138,14 @@ Three main tables managed in `src-tauri/src/db.rs`:
 - `is_read`, `is_starred` (INTEGER, 0/1)
 
 **settings**: Key-value store for app settings
+
 - `key` (TEXT PRIMARY KEY)
 - `value` (TEXT)
 
 ### State Management
 
 **Zustand** (`useAppStore`): Client-side state
+
 - Theme (light/dark/system)
 - Selected feed ID
 - Article filter (all/unread/starred)
@@ -149,6 +154,7 @@ Three main tables managed in `src-tauri/src/db.rs`:
 - Persisted to localStorage
 
 **React Query**: Server state (from Tauri/SQLite)
+
 - Feed list (`["feeds"]`)
 - Articles (`["articles", feedId, filter, limit]`)
 - Auto-refetch on mutations
@@ -157,15 +163,15 @@ Three main tables managed in `src-tauri/src/db.rs`:
 
 Vim-style shortcuts implemented in `useKeyboardShortcuts.ts`:
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Next article |
-| `k` / `↑` | Previous article |
-| `o` / `Enter` | Open in browser |
-| `r` | Refresh all feeds |
-| `m` | Toggle theme |
-| `s` | Toggle star |
-| `?` | Show shortcuts (placeholder) |
+| Key           | Action                       |
+| ------------- | ---------------------------- |
+| `j` / `↓`     | Next article                 |
+| `k` / `↑`     | Previous article             |
+| `o` / `Enter` | Open in browser              |
+| `r`           | Refresh all feeds            |
+| `m`           | Toggle theme                 |
+| `s`           | Toggle star                  |
+| `?`           | Show shortcuts (placeholder) |
 
 ## Code Style Guidelines
 
@@ -211,6 +217,7 @@ npx vitest run src/lib/opml.test.ts
 **Test files pattern**: `src/**/*.{test,spec}.{js,ts,jsx,tsx}`
 
 **Key testing patterns**:
+
 - Mock Tauri API in `src/test/setup.ts`
 - Mock `window.matchMedia` for theme tests
 - Use `@testing-library/react` for component tests
@@ -275,6 +282,7 @@ Triggers: Push to `main`, PRs to `main`, release tags
 ### Database Migrations
 
 The project uses automatic schema creation in `init_db()`. To modify schema:
+
 1. Update `init_db()` SQL in `src-tauri/src/db.rs`
 2. Consider adding migration logic for existing users
 3. Test with fresh and existing databases
@@ -282,6 +290,7 @@ The project uses automatic schema creation in `init_db()`. To modify schema:
 ## Dependencies to Know
 
 ### Key Frontend Dependencies
+
 - `@tauri-apps/api` - Tauri bridge
 - `@tanstack/react-query` - Server state management
 - `zustand` - Client state management
@@ -289,6 +298,7 @@ The project uses automatic schema creation in `init_db()`. To modify schema:
 - `clsx` + `tailwind-merge` - Conditional classes
 
 ### Key Rust Dependencies
+
 - `tauri` - Desktop framework
 - `rusqlite` - SQLite bindings
 - `feed-rs` - RSS/Atom parsing
@@ -301,6 +311,7 @@ The project uses automatic schema creation in `init_db()`. To modify schema:
 ### Common Issues
 
 **Build fails with Rust errors**:
+
 ```bash
 # Clean and rebuild
 cd src-tauri && cargo clean && cd ..
@@ -308,14 +319,17 @@ npm run tauri dev
 ```
 
 **TypeScript path resolution issues**:
+
 - Ensure `@/*` imports use correct casing
 - Check `tsconfig.json` paths config
 
 **Database locked errors**:
+
 - Each operation opens/closes connection; ensure no long-running transactions
 - Check for connection leaks in custom code
 
 **Tauri API not found in tests**:
+
 - Mock is in `src/test/setup.ts`
 - Ensure `vi.mock()` is at top of test file
 
