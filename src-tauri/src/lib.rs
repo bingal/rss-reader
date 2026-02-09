@@ -8,6 +8,7 @@ use db::{
     Feed, Article,
 };
 use rss::fetch_and_save_feed;
+use tauri_plugin_shell::ShellExt;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -89,33 +90,60 @@ fn set_app_setting(key: String, value: String) -> Result<(), String> {
 
 #[tauri::command]
 fn translate_text(text: String, target_lang: String) -> Result<String, String> {
-    // Simple translation using LibreTranslate (free API)
-    // In production, you might want to use a paid service or local model
+    // Read settings from database
+    let base_url = get_setting("translation_base_url".to_string())?
+        .unwrap_or_else(|| "https://libretranslate.com".to_string());
+    
+    let api_key = get_setting("translation_api_key".to_string())?
+        .unwrap_or_default();
+    
+    // Ensure base_url doesn't end with /
+    let base_url = base_url.trim_end_matches('/');
+    let translate_url = format!("{}/translate", base_url);
+    
     let client = reqwest::blocking::Client::new();
     
+    // Build request body
+    let mut body = serde_json::json!({
+        "q": text,
+        "source": "auto",
+        "target": target_lang,
+        "format": "text"
+    });
+    
+    // Add API key if provided
+    if !api_key.is_empty() {
+        body["api_key"] = serde_json::json!(api_key);
+    }
+    
     let response = client
-        .post("https://libretranslate.com/translate")
-        .json(&serde_json::json!({
-            "q": text,
-            "source": "auto",
-            "target": target_lang,
-            "format": "text"
-        }))
+        .post(&translate_url)
+        .json(&body)
         .send()
         .map_err(|e| format!("Translation request failed: {}", e))?;
     
     if !response.status().is_success() {
-        return Err("Translation service unavailable".to_string());
+        let status = response.status();
+        let error_text = response.text().unwrap_or_default();
+        return Err(format!("Translation service error ({}): {}", status, error_text));
     }
     
     let json: serde_json::Value = response.json().map_err(|e| format!("Parse response failed: {}", e))?;
     
     let translated = json["translatedText"]
         .as_str()
-        .ok_or_else(|| "Invalid translation response".to_string())?
+        .ok_or_else(|| format!("Invalid translation response: {:?}", json))?
         .to_string();
     
     Ok(translated)
+}
+
+#[tauri::command]
+async fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    app.shell()
+        .open(&url, None)
+        .map_err(|e| format!("Failed to open URL: {}", e))?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -126,6 +154,7 @@ pub fn run() {
     }
     
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_version,
@@ -140,6 +169,7 @@ pub fn run() {
             get_app_setting,
             set_app_setting,
             translate_text,
+            open_link,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

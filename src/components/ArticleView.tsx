@@ -31,7 +31,7 @@ export function ArticleView({ article }: ArticleViewProps) {
 
   const handleOpenOriginal = () => {
     if (article) {
-      invoke("open", { path: article.link }).catch(console.error);
+      invoke("open_link", { url: article.link }).catch(console.error);
     }
   };
 

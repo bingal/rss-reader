@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
@@ -11,12 +11,39 @@ import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify-icon/react";
 
 function App() {
-  const { theme, setTheme } = useAppStore();
+  const { theme, setTheme, updateSettings } = useAppStore();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const queryClient = useQueryClient();
+
+  // Load settings from backend on startup
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const baseUrl = await invoke<string | null>("get_app_setting", {
+          key: "translation_base_url",
+        });
+        const apiKey = await invoke<string | null>("get_app_setting", {
+          key: "translation_api_key",
+        });
+        const prompt = await invoke<string | null>("get_app_setting", {
+          key: "translation_prompt",
+        });
+
+        updateSettings({
+          baseUrl: baseUrl || "https://libretranslate.com",
+          apiKey: apiKey || "",
+          prompt: prompt || "Translate the following text to Chinese:",
+        });
+      } catch (e) {
+        console.error("Failed to load settings:", e);
+      }
+    }
+
+    loadSettings();
+  }, [updateSettings]);
 
   // Get articles from query cache for keyboard navigation
   const articlesData =
