@@ -75,12 +75,15 @@ jobs:
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
-      - name: Build macOS app
-        run: npm run tauri build -- --target universal-apple-darwin
+      - name: Build macOS app (unsigned)
+        run: |
+          export MACOSX_DEPLOYMENT_TARGET=10.13
+          npm run tauri build -- --target universal-apple-darwin --ci
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Disable code signing for CI builds
+          APPLE_CERTIFICATE: ""
+          APPLE_SIGNING_IDENTITY: ""
+          # Notarize only if secrets are available (release builds)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -129,7 +132,7 @@ jobs:
   # Build for Linux
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: check
     steps:
       - name: Checkout
@@ -158,10 +161,24 @@ jobs:
             pkg-config \
             libudev-dev \
             libdbus-1-dev \
-            cmake
+            cmake \
+            libfuse2 \
+            wget
+
+      - name: Install linuxdeploy
+        run: |
+          wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -O /tmp/linuxdeploy-x86_64.AppImage
+          chmod +x /tmp/linuxdeploy-x86_64.AppImage
+          # Extract and install to system
+          cd /tmp
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          sudo cp squashfs-root/usr/bin/linuxdeploy /usr/local/bin/
 
       - name: Build Linux app
         run: npm run tauri build
+        env:
+          # Use system linuxdeploy
+          LINUXDEPLOY: /usr/local/bin/linuxdeploy
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
