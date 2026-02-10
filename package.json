@@ -1,6 +1,6 @@
 {
   "name": "rss-reader",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A fast, comfortable RSS reader desktop app",
   "type": "module",
   "scripts": {

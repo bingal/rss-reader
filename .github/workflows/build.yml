@@ -72,40 +72,39 @@ jobs:
       - name: Install backend dependencies
         run: cd backend && bun install
 
-      - name: Build backend binaries
+      - name: Build backend binaries (universal)
         run: |
           cd backend
           # Build for both architectures
           bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
           bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
+          # Create universal binary using lipo
+          lipo -create \
+            ../src-tauri/binaries/backend-aarch64-apple-darwin \
+            ../src-tauri/binaries/backend-x86_64-apple-darwin \
+            -output ../src-tauri/binaries/backend-universal-apple-darwin
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
-      - name: Build macOS app (aarch64)
-        run: |
-          export MACOSX_DEPLOYMENT_TARGET=10.13
-          export CI=true
-          # Build without signing - do not set APPLE_SIGNING_IDENTITY
-          bun run tauri build -- --target aarch64-apple-darwin
+      - name: Install macOS dependencies
+        run: brew install create-dmg
 
-      - name: Build macOS app (x86_64)
+      - name: Build Universal macOS app
         run: |
           export MACOSX_DEPLOYMENT_TARGET=10.13
           export CI=true
-          bun run tauri build -- --target x86_64-apple-darwin
+          # Build universal binary that supports both Intel and Apple Silicon
+          bun run tauri build -- --target universal-apple-darwin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macOS Apps
+          name: macOS App
           path: |
-            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
-            src-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
   # Build for Windows
   build-windows:
@@ -186,20 +185,11 @@ jobs:
             libdbus-1-dev \
             cmake \
             libfuse2 \
+            file \
             wget
-
-      - name: Install linuxdeploy
-        run: |
-          wget -c "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -O /tmp/linuxdeploy-x86_64.AppImage
-          chmod +x /tmp/linuxdeploy-x86_64.AppImage
-          cd /tmp
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
-          sudo cp squashfs-root/usr/bin/linuxdeploy /usr/local/bin/
 
       - name: Build Linux app
         run: bun run tauri build
-        env:
-          LINUXDEPLOY: /usr/local/bin/linuxdeploy
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
