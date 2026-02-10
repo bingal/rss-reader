@@ -1,25 +1,30 @@
-import { Database } from 'bun:sqlite';
-import { join } from 'path';
-import { homedir } from 'os';
-import { mkdirSync, existsSync } from 'fs';
+import { Database } from "bun:sqlite";
+import { join } from "path";
+import { homedir } from "os";
+import { mkdirSync, existsSync } from "fs";
 
 let db: Database | null = null;
 
 function getDbPath(): string {
-  const dataDir = join(homedir(), 'Library', 'Application Support', 'rss-reader');
-  
+  const dataDir = join(
+    homedir(),
+    "Library",
+    "Application Support",
+    "rss-reader",
+  );
+
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }
-  
-  return join(dataDir, 'data.db');
+
+  return join(dataDir, "data.db");
 }
 
 export function getDatabase(): Database {
   if (!db) {
     const dbPath = getDbPath();
     db = new Database(dbPath, { create: true });
-    db.exec('PRAGMA journal_mode = WAL');
+    db.exec("PRAGMA journal_mode = WAL");
     initializeSchema(db);
   }
   return db;

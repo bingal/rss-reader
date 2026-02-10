@@ -16,13 +16,13 @@
         z-index: 9999;
         transition: opacity 0.3s ease-out;
       }
-      
+
       /* Default to light theme */
       #loading-screen {
         background-color: #ffffff;
         color: #09090b;
       }
-      
+
       /* Dark theme - check system preference */
       @media (prefers-color-scheme: dark) {
         #loading-screen {
@@ -30,17 +30,17 @@
           color: #fafafa;
         }
       }
-      
+
       /* Also support manual dark class (in case user has selected it before) */
       .dark #loading-screen {
         background-color: #09090b;
         color: #fafafa;
       }
-      
+
       .loading-content {
         text-align: center;
       }
-      
+
       .loading-spinner {
         width: 40px;
         height: 40px;
@@ -50,17 +50,21 @@
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
-      
+
       @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
-      
+
       .loading-text {
         font-size: 14px;
         opacity: 0.7;
       }
-      
+
       /* Hide loading screen when app is ready */
       #loading-screen.hidden {
         opacity: 0;
@@ -69,16 +73,16 @@
     </style>
     <script>
       // Apply stored theme immediately to prevent flash
-      (function() {
+      (function () {
         try {
-          const stored = localStorage.getItem('theme-storage');
+          const stored = localStorage.getItem("theme-storage");
           if (stored) {
             const data = JSON.parse(stored);
             const theme = data.state?.theme;
-            if (theme === 'dark') {
-              document.documentElement.classList.add('dark');
-            } else if (theme === 'light') {
-              document.documentElement.classList.remove('dark');
+            if (theme === "dark") {
+              document.documentElement.classList.add("dark");
+            } else if (theme === "light") {
+              document.documentElement.classList.remove("dark");
             }
           }
         } catch (e) {
@@ -95,7 +99,7 @@
         <div class="loading-text">Loading RSS Reader...</div>
       </div>
     </div>
-    
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

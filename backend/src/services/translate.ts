@@ -1,4 +1,4 @@
-import type { Context } from 'hono';
+import type { Context } from "hono";
 
 interface TranslationSettings {
   baseUrl: string;
@@ -10,16 +10,17 @@ interface TranslationSettings {
 export async function translateText(
   text: string,
   targetLang: string,
-  settings: TranslationSettings
+  settings: TranslationSettings,
 ): Promise<string> {
   const { baseUrl, apiKey, model, prompt } = settings;
 
   // Determine if this is OpenAI API or LibreTranslate
-  const isOpenAI = baseUrl.includes('openai.com') 
-    || baseUrl.includes('openai')
-    || baseUrl.includes('api.openai') 
-    || baseUrl.endsWith('/v1')
-    || (apiKey && !baseUrl.includes('libretranslate'));
+  const isOpenAI =
+    baseUrl.includes("openai.com") ||
+    baseUrl.includes("openai") ||
+    baseUrl.includes("api.openai") ||
+    baseUrl.endsWith("/v1") ||
+    (apiKey && !baseUrl.includes("libretranslate"));
 
   if (isOpenAI) {
     return translateWithOpenAI(text, baseUrl, apiKey, model, prompt);
@@ -33,27 +34,29 @@ async function translateWithOpenAI(
   baseUrl: string,
   apiKey: string,
   model: string,
-  prompt: string
+  prompt: string,
 ): Promise<string> {
-  const apiUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const apiUrl = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
 
   // Enhanced prompt for Markdown translation
-  const markdownPrompt = prompt || 'You are a professional translator. Translate the following Markdown text while preserving all Markdown formatting (links, images, code blocks, etc.). Only translate the readable text content, keep URLs and Markdown syntax unchanged.';
+  const markdownPrompt =
+    prompt ||
+    "You are a professional translator. Translate the following Markdown text while preserving all Markdown formatting (links, images, code blocks, etc.). Only translate the readable text content, keep URLs and Markdown syntax unchanged.";
 
   const response = await fetch(apiUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
       messages: [
-        { role: 'system', content: markdownPrompt },
-        { role: 'user', content: text }
+        { role: "system", content: markdownPrompt },
+        { role: "user", content: text },
       ],
-      temperature: 0.3
-    })
+      temperature: 0.3,
+    }),
   });
 
   if (!response.ok) {
@@ -62,22 +65,22 @@ async function translateWithOpenAI(
   }
 
   const json = await response.json();
-  return json.choices[0]?.message?.content || '';
+  return json.choices[0]?.message?.content || "";
 }
 
 async function translateWithLibre(
   text: string,
   targetLang: string,
   baseUrl: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
-  const translateUrl = `${baseUrl.replace(/\/$/, '')}/translate`;
+  const translateUrl = `${baseUrl.replace(/\/$/, "")}/translate`;
 
   const body: any = {
     q: text,
-    source: 'auto',
+    source: "auto",
     target: targetLang,
-    format: 'text'
+    format: "text",
   };
 
   if (apiKey) {
@@ -85,9 +88,9 @@ async function translateWithLibre(
   }
 
   const response = await fetch(translateUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -96,5 +99,5 @@ async function translateWithLibre(
   }
 
   const json = await response.json();
-  return json.translatedText || '';
+  return json.translatedText || "";
 }

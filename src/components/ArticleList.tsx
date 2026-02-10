@@ -44,9 +44,10 @@ export function ArticleList({
     if (!article.isRead) {
       // Optimistically update local state
       markArticleAsRead(article.id);
-      
+
       // Update backend and refresh article list
-      api.articles.markRead(article.id, true)
+      api.articles
+        .markRead(article.id, true)
         .then(() => {
           // Invalidate articles cache to refresh read status
           queryClient.invalidateQueries({ queryKey: ["articles"] });

@@ -29,4 +29,4 @@ export interface Translation {
   createdAt: number;
 }
 
-export type ArticleFilter = 'all' | 'unread' | 'starred';
+export type ArticleFilter = "all" | "unread" | "starred";

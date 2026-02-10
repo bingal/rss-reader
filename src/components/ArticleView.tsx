@@ -60,7 +60,7 @@ export function ArticleView({ article }: ArticleViewProps) {
       setPhase("idle");
       // Don't clear translation states immediately - wait for loading
       setHasTranslation(false);
-      
+
       // Load translation asynchronously
       const loadTranslation = async () => {
         // Clear previous translation
@@ -68,11 +68,11 @@ export function ArticleView({ article }: ArticleViewProps) {
         setTranslatedContent("");
         setDisplayedTitle("");
         setDisplayedContent("");
-        
+
         // Load new translation
         await loadSavedTranslation();
       };
-      
+
       loadTranslation();
     } else {
       isActiveRef.current = false;
@@ -85,30 +85,30 @@ export function ArticleView({ article }: ArticleViewProps) {
     try {
       const result = await api.translation.get(article.id);
       const saved = result.content;
-      
-      console.log('[ArticleView] loadSavedTranslation:', {
+
+      console.log("[ArticleView] loadSavedTranslation:", {
         articleId: article.id,
         hasSaved: !!saved,
-        savedLength: saved?.length || 0
+        savedLength: saved?.length || 0,
       });
-      
+
       if (saved && isActiveRef.current) {
         const separatorIndex = saved.indexOf(SEPARATOR);
         let title = "";
         let content = "";
-        
+
         if (separatorIndex >= 0) {
           title = saved.slice(0, separatorIndex);
           content = saved.slice(separatorIndex + SEPARATOR.length);
         } else {
           content = saved;
         }
-        
-        console.log('[ArticleView] Setting translation:', {
+
+        console.log("[ArticleView] Setting translation:", {
           titleLength: title.length,
-          contentLength: content.length
+          contentLength: content.length,
         });
-        
+
         setTranslatedTitle(title);
         setTranslatedContent(content);
         setDisplayedTitle(title);
@@ -215,7 +215,8 @@ export function ArticleView({ article }: ArticleViewProps) {
         setPhase("streaming");
 
         // Save translation (Markdown format)
-        const combined = translatedTitleText + SEPARATOR + translatedContentText;
+        const combined =
+          translatedTitleText + SEPARATOR + translatedContentText;
         await api.translation.save(article.id, combined);
 
         // Start streaming display with Markdown text
@@ -286,7 +287,7 @@ export function ArticleView({ article }: ArticleViewProps) {
   const handleOpenOriginal = async () => {
     if (article) {
       try {
-        const { open } = await import('@tauri-apps/plugin-opener');
+        const { open } = await import("@tauri-apps/plugin-opener");
         await open(article.link);
       } catch (e) {
         addErrorToast(`Failed to open: ${e}`);
@@ -307,16 +308,16 @@ export function ArticleView({ article }: ArticleViewProps) {
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
-    console.log('[ArticleView] handleViewModeChange:', {
+    console.log("[ArticleView] handleViewModeChange:", {
       mode,
       hasTranslation,
       phase,
       translatedTitleLength: translatedTitle.length,
       translatedContentLength: translatedContent.length,
       displayedTitleLength: displayedTitle.length,
-      displayedContentLength: displayedContent.length
+      displayedContentLength: displayedContent.length,
     });
-    
+
     if (mode === "translated" && !hasTranslation && phase === "idle") {
       handleTranslate();
     } else {
@@ -324,7 +325,9 @@ export function ArticleView({ article }: ArticleViewProps) {
       if (mode === "translated" && hasTranslation) {
         // When switching to translated mode with existing translation,
         // set both the displayed and full content
-        console.log('[ArticleView] Setting displayed content from translated content');
+        console.log(
+          "[ArticleView] Setting displayed content from translated content",
+        );
         setDisplayedTitle(translatedTitle);
         setDisplayedContent(translatedContent);
       }
@@ -361,13 +364,13 @@ export function ArticleView({ article }: ArticleViewProps) {
         article?.summary ||
         ""
       : article?.content || article?.summary || "";
-  
-  console.log('[ArticleView] Render:', {
+
+  console.log("[ArticleView] Render:", {
     viewMode,
     phase,
     hasTranslation,
     displayTitleLength: displayTitle.length,
-    displayContentLength: displayContent.length
+    displayContentLength: displayContent.length,
   });
 
   if (!article) {

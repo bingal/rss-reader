@@ -31,8 +31,15 @@ interface SidebarProps {
   isRefreshing: boolean;
 }
 
-export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, isRefreshing }: SidebarProps) {
-  const { feeds, setFeeds, selectedFeedId, setSelectedFeedId, theme } = useAppStore();
+export function Sidebar({
+  onShowOPML,
+  onShowSettings,
+  onRefresh,
+  onToggleTheme,
+  isRefreshing,
+}: SidebarProps) {
+  const { feeds, setFeeds, selectedFeedId, setSelectedFeedId, theme } =
+    useAppStore();
   const [newFeedUrl, setNewFeedUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [editingFeed, setEditingFeed] = useState<{
@@ -266,7 +273,7 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
           >
             <Icon icon="mdi:plus" className="text-xl" />
           </button>
-          
+
           <button
             onClick={onShowOPML}
             className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center"
@@ -274,7 +281,7 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
           >
             <Icon icon="mdi:database-import" className="text-xl" />
           </button>
-          
+
           <button
             onClick={onRefresh}
             disabled={isRefreshing}

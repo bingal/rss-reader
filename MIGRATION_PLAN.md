@@ -3,6 +3,7 @@
 ## 目标架构
 
 **新技术栈：**
+
 - 包管理：Bun (替代 npm)
 - 后端服务：Hono + TypeScript + Bun runtime
 - 数据库：better-sqlite3 (Bun原生支持)
@@ -14,8 +15,9 @@
 ## 架构对比
 
 ### 旧架构
+
 ```
-Frontend (React) 
+Frontend (React)
     ↓ invoke()
 Rust Tauri Commands (lib.rs)
     ↓
@@ -23,30 +25,34 @@ SQLite (rusqlite)
 ```
 
 ### 新架构
+
 ```
 Frontend (React)
     ↓ fetch(http://localhost:PORT)
 Hono Backend (TypeScript + Bun)
     ↓
 SQLite (better-sqlite3)
-    
+
 Tauri App (仅负责打包和启动 sidecar)
 ```
 
 ## 迁移步骤
 
 ### Phase 1: 环境准备
+
 1. 安装 Bun 包管理器
 2. 迁移 package.json 依赖
 3. 更新构建脚本
 
 ### Phase 2: Hono 后端开发
+
 1. 创建 `backend/` 目录结构
 2. 设置 Hono 服务器框架
 3. 配置数据库连接 (better-sqlite3)
 4. 实现所有 API 端点
 
 ### Phase 3: 功能迁移
+
 1. Feed 管理 API
 2. 文章管理 API
 3. RSS 解析功能
@@ -55,18 +61,21 @@ Tauri App (仅负责打包和启动 sidecar)
 6. 数据库迁移工具
 
 ### Phase 4: Tauri Sidecar 配置
+
 1. 配置 Tauri sidecar
 2. 更新 tauri.conf.json
 3. 生成独立的 backend 二进制文件
 4. 配置端口通信
 
 ### Phase 5: 前端适配
+
 1. 移除 `@tauri-apps/api` invoke 调用
 2. 改用标准 fetch API
 3. 更新 API 客户端
 4. 更新类型定义
 
 ### Phase 6: 清理和测试
+
 1. 删除 Rust 代码和依赖
 2. 清理 src-tauri 目录
 3. 更新测试
@@ -110,21 +119,21 @@ backend/
 
 ### 3. Hono API 端点映射
 
-| Rust Command | Hono API Endpoint | Method |
-|-------------|-------------------|--------|
-| get_all_feeds | GET /api/feeds | GET |
-| add_new_feed | POST /api/feeds | POST |
-| delete_feed | DELETE /api/feeds/:id | DELETE |
-| fetch_articles | GET /api/articles | GET |
-| refresh_feed | POST /api/feeds/:id/refresh | POST |
-| refresh_all_feeds | POST /api/feeds/refresh-all | POST |
-| mark_read | PATCH /api/articles/:id/read | PATCH |
-| toggle_starred | PATCH /api/articles/:id/starred | PATCH |
-| get_app_setting | GET /api/settings/:key | GET |
-| set_app_setting | PUT /api/settings/:key | PUT |
-| translate_text | POST /api/translate | POST |
-| save_translation | POST /api/translations | POST |
-| get_translation | GET /api/translations/:articleId | GET |
+| Rust Command      | Hono API Endpoint                | Method |
+| ----------------- | -------------------------------- | ------ |
+| get_all_feeds     | GET /api/feeds                   | GET    |
+| add_new_feed      | POST /api/feeds                  | POST   |
+| delete_feed       | DELETE /api/feeds/:id            | DELETE |
+| fetch_articles    | GET /api/articles                | GET    |
+| refresh_feed      | POST /api/feeds/:id/refresh      | POST   |
+| refresh_all_feeds | POST /api/feeds/refresh-all      | POST   |
+| mark_read         | PATCH /api/articles/:id/read     | PATCH  |
+| toggle_starred    | PATCH /api/articles/:id/starred  | PATCH  |
+| get_app_setting   | GET /api/settings/:key           | GET    |
+| set_app_setting   | PUT /api/settings/:key           | PUT    |
+| translate_text    | POST /api/translate              | POST   |
+| save_translation  | POST /api/translations           | POST   |
+| get_translation   | GET /api/translations/:articleId | GET    |
 
 ### 4. Tauri Sidecar 配置
 
@@ -133,9 +142,7 @@ backend/
 ```json
 {
   "bundle": {
-    "externalBin": [
-      "backend/dist/server"
-    ]
+    "externalBin": ["backend/dist/server"]
   },
   "plugins": {
     "shell": {
@@ -203,77 +210,93 @@ const schema = `
 
 ```typescript
 // src/lib/api.ts
-const API_BASE = 'http://localhost:3456/api';
+const API_BASE = "http://localhost:3456/api";
 
 export const api = {
   feeds: {
-    getAll: () => fetch(`${API_BASE}/feeds`).then(r => r.json()),
-    add: (data) => fetch(`${API_BASE}/feeds`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).then(r => r.json()),
-    delete: (id) => fetch(`${API_BASE}/feeds/${id}`, {
-      method: 'DELETE'
-    }),
-    refresh: (id) => fetch(`${API_BASE}/feeds/${id}/refresh`, {
-      method: 'POST'
-    }).then(r => r.json()),
-    refreshAll: () => fetch(`${API_BASE}/feeds/refresh-all`, {
-      method: 'POST'
-    }).then(r => r.json()),
+    getAll: () => fetch(`${API_BASE}/feeds`).then((r) => r.json()),
+    add: (data) =>
+      fetch(`${API_BASE}/feeds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    delete: (id) =>
+      fetch(`${API_BASE}/feeds/${id}`, {
+        method: "DELETE",
+      }),
+    refresh: (id) =>
+      fetch(`${API_BASE}/feeds/${id}/refresh`, {
+        method: "POST",
+      }).then((r) => r.json()),
+    refreshAll: () =>
+      fetch(`${API_BASE}/feeds/refresh-all`, {
+        method: "POST",
+      }).then((r) => r.json()),
   },
   articles: {
-    fetch: (params) => fetch(`${API_BASE}/articles?${new URLSearchParams(params)}`).then(r => r.json()),
-    markRead: (id, read) => fetch(`${API_BASE}/articles/${id}/read`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ read })
-    }),
-    toggleStarred: (id, starred) => fetch(`${API_BASE}/articles/${id}/starred`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ starred })
-    }),
+    fetch: (params) =>
+      fetch(`${API_BASE}/articles?${new URLSearchParams(params)}`).then((r) =>
+        r.json(),
+      ),
+    markRead: (id, read) =>
+      fetch(`${API_BASE}/articles/${id}/read`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ read }),
+      }),
+    toggleStarred: (id, starred) =>
+      fetch(`${API_BASE}/articles/${id}/starred`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starred }),
+      }),
   },
   settings: {
-    get: (key) => fetch(`${API_BASE}/settings/${key}`).then(r => r.json()),
-    set: (key, value) => fetch(`${API_BASE}/settings/${key}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    }),
+    get: (key) => fetch(`${API_BASE}/settings/${key}`).then((r) => r.json()),
+    set: (key, value) =>
+      fetch(`${API_BASE}/settings/${key}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      }),
   },
   translation: {
-    translate: (text, targetLang) => fetch(`${API_BASE}/translate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, targetLang })
-    }).then(r => r.json()),
-    save: (articleId, content) => fetch(`${API_BASE}/translations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ articleId, content })
-    }),
-    get: (articleId) => fetch(`${API_BASE}/translations/${articleId}`).then(r => r.json()),
-  }
+    translate: (text, targetLang) =>
+      fetch(`${API_BASE}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetLang }),
+      }).then((r) => r.json()),
+    save: (articleId, content) =>
+      fetch(`${API_BASE}/translations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId, content }),
+      }),
+    get: (articleId) =>
+      fetch(`${API_BASE}/translations/${articleId}`).then((r) => r.json()),
+  },
 };
 ```
 
 ## 优势分析
 
 ### 开发体验提升
+
 - TypeScript 全栈，类型共享更简单
 - 热重载更快（Bun 性能优势）
 - 无需 Rust 编译，开发迭代更快
 - 代码更易维护和调试
 
 ### 性能优势
+
 - Bun 运行时性能优异
 - HTTP 通信开销极小（本地）
 - better-sqlite3 性能优秀
 
 ### 部署优势
+
 - Sidecar 打包，用户无需关心后端
 - 跨平台更简单（Bun 支持良好）
 - 可独立运行后端服务（开发/调试）
@@ -281,11 +304,13 @@ export const api = {
 ## 风险评估
 
 ### 技术风险
+
 - Bun 生态相对年轻，部分包可能不兼容
 - Sidecar 模式需要正确配置端口和生命周期
 - SQLite 数据库文件位置需要统一管理
 
 ### 缓解措施
+
 - 使用成熟的 Bun 兼容包
 - 添加健康检查和重试机制
 - 使用标准数据目录（用户目录）

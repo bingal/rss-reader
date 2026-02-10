@@ -3,8 +3,5 @@
   "identifier": "shell-sidecar",
   "description": "Capability for shell sidecar",
   "windows": ["main"],
-  "permissions": [
-    "shell:allow-execute",
-    "shell:allow-kill"
-  ]
+  "permissions": ["shell:allow-execute", "shell:allow-kill"]
 }

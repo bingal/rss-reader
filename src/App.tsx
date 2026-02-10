@@ -39,9 +39,9 @@ function App() {
         // Mark as ready and hide loading screen
         setIsReady(true);
         setTimeout(() => {
-          const loadingScreen = document.getElementById('loading-screen');
+          const loadingScreen = document.getElementById("loading-screen");
           if (loadingScreen) {
-            loadingScreen.classList.add('hidden');
+            loadingScreen.classList.add("hidden");
           }
         }, 100);
       }
@@ -103,7 +103,7 @@ function App() {
     <div className="h-screen flex flex-col bg-background text-foreground">
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
+        <Sidebar
           onShowOPML={() => setShowOPML(true)}
           onShowSettings={() => setShowSettings(true)}
           onRefresh={handleRefresh}
