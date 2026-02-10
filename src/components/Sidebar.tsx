@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAppStore, Feed } from "@/stores/useAppStore";
+import { useAppStore } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify-icon/react";
 import { api } from "@/lib/api";

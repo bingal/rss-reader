@@ -1,5 +1,3 @@
-import type { Context } from "hono";
-
 interface TranslationSettings {
   baseUrl: string;
   apiKey: string;

@@ -74,7 +74,7 @@ export function htmlToMarkdown(html: string): string {
 
   try {
     // Clean up common RSS HTML issues
-    let cleaned = html
+    const cleaned = html
       .replace(/<br\s*\/?>/gi, "\n") // Convert <br> to newlines
       .replace(/&nbsp;/g, " ") // Convert &nbsp; to spaces
       .trim();

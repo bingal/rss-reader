@@ -15,7 +15,6 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isReady, setIsReady] = useState(false);
   const queryClient = useQueryClient();
 
   // Load settings from backend on startup

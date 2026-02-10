@@ -47,7 +47,7 @@ export async function fetchFeed(
 function createSummary(markdown: string): string {
   // Markdown is already clean text, just limit length
   const text = markdown
-    .replace(/[#*_\[\]()]/g, "") // Remove markdown syntax
+    .replace(/[#*_[\]()]/g, "") // Remove markdown syntax
     .replace(/\s+/g, " ")
     .trim();
 
