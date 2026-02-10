@@ -45,7 +45,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["binaries/*"],
+    "externalBin": ["binaries/backend"],
     "linux": {
       "deb": {
         "depends": []

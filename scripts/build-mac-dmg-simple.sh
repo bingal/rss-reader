@@ -82,6 +82,10 @@ rustup target add "$TARGET" 2>/dev/null || true
 # Build backend binary
 echo ""
 echo "Building backend binary..."
+
+# Ensure binaries directory exists
+mkdir -p src-tauri/binaries
+
 cd backend
 bun build src/index.ts --compile --target="$BUN_TARGET" --outfile "../src-tauri/binaries/backend-$TARGET"
 chmod +x "../src-tauri/binaries/backend-$TARGET"
