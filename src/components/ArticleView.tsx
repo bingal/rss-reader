@@ -222,10 +222,26 @@ export function ArticleView({ article }: ArticleViewProps) {
     };
   }, [phase, article, addErrorToast, streamText]);
 
-  const formatDate = (timestamp: number) => {
-    if (!timestamp || timestamp <= 0) return "Unknown date";
+  const formatDate = (timestamp: number | null | undefined) => {
+    // Handle null, undefined, or invalid values
+    if (timestamp === null || timestamp === undefined) return "Unknown date";
+
+    // Ensure it's a number
+    const ts =
+      typeof timestamp === "string"
+        ? parseInt(timestamp, 10)
+        : Number(timestamp);
+
+    if (!isFinite(ts) || ts <= 0) return "Unknown date";
+
     try {
-      return new Date(timestamp * 1000).toLocaleDateString("zh-CN", {
+      // Unix timestamp is in seconds, convert to milliseconds for Date
+      const date = new Date(ts * 1000);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) return "Invalid date";
+
+      return date.toLocaleDateString("zh-CN", {
         year: "numeric",
         month: "short",
         day: "numeric",

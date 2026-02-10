@@ -39,8 +39,19 @@ export function ArticleList({
     onSelectArticle(article);
   };
 
-  const formatArticleDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
+  const formatArticleDate = (timestamp: number | null | undefined) => {
+    // Handle null/undefined
+    if (timestamp === null || timestamp === undefined) return "Unknown";
+
+    const ts =
+      typeof timestamp === "string"
+        ? parseInt(timestamp, 10)
+        : Number(timestamp);
+    if (!isFinite(ts) || ts <= 0) return "Unknown";
+
+    const date = new Date(ts * 1000);
+    if (isNaN(date.getTime())) return "Unknown";
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = diff / (1000 * 60 * 60);
@@ -49,11 +60,11 @@ export function ArticleList({
     if (hours < 1) return "Just now";
     if (hours < 24) return `${Math.floor(hours)}h ago`;
     if (days < 7) return `${Math.floor(days)}d ago`;
-    return formatDate(timestamp * 1000);
+    return formatDate(ts);
   };
 
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
+    const date = new Date(timestamp * 1000);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
