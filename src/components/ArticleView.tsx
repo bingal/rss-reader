@@ -248,6 +248,25 @@ export function ArticleView({ article }: ArticleViewProps) {
     }
   };
 
+  // Handle re-translate - reset and translate again with streaming
+  const handleRetranslate = async () => {
+    if (!article || isTranslating) return;
+
+    // Reset translation state
+    setTranslatedTitle("");
+    setTranslatedContent("");
+    setDisplayedTitle("");
+    setDisplayedContent("");
+    setHasTranslation(false);
+
+    // Switch to translated view and start translation
+    setViewMode("translated");
+    const success = await performTranslation();
+    if (!success) {
+      setViewMode("original");
+    }
+  };
+
   const handleToggleStar = async () => {
     if (!article) return;
     const newStarred = article.isStarred === 0;
@@ -387,7 +406,11 @@ export function ArticleView({ article }: ArticleViewProps) {
           {/* Translate / Re-translate button - show if not translating */}
           {!isTranslating && (
             <button
-              onClick={() => handleViewModeChange("translated")}
+              onClick={
+                hasTranslation
+                  ? handleRetranslate
+                  : () => handleViewModeChange("translated")
+              }
               className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
               title={hasTranslation ? "Re-translate" : "Translate"}
             >
