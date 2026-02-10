@@ -1,0 +1,18 @@
+{
+  "name": "rss-reader-backend",
+  "version": "0.1.5",
+  "description": "RSS Reader backend API server",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile dist/server",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.7.11",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.5"
+  }
+}

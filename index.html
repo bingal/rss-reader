@@ -5,8 +5,97 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RSS Reader</title>
+    <style>
+      /* Loading screen styles */
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      /* Default to light theme */
+      #loading-screen {
+        background-color: #ffffff;
+        color: #09090b;
+      }
+      
+      /* Dark theme - check system preference */
+      @media (prefers-color-scheme: dark) {
+        #loading-screen {
+          background-color: #09090b;
+          color: #fafafa;
+        }
+      }
+      
+      /* Also support manual dark class (in case user has selected it before) */
+      .dark #loading-screen {
+        background-color: #09090b;
+        color: #fafafa;
+      }
+      
+      .loading-content {
+        text-align: center;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 16px;
+        border: 3px solid;
+        border-color: currentColor transparent currentColor transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        font-size: 14px;
+        opacity: 0.7;
+      }
+      
+      /* Hide loading screen when app is ready */
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+    <script>
+      // Apply stored theme immediately to prevent flash
+      (function() {
+        try {
+          const stored = localStorage.getItem('theme-storage');
+          if (stored) {
+            const data = JSON.parse(stored);
+            const theme = data.state?.theme;
+            if (theme === 'dark') {
+              document.documentElement.classList.add('dark');
+            } else if (theme === 'light') {
+              document.documentElement.classList.remove('dark');
+            }
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      })();
+    </script>
   </head>
   <body>
+    <!-- Loading screen -->
+    <div id="loading-screen">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading RSS Reader...</div>
+      </div>
+    </div>
+    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore, Feed } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify-icon/react";
+import { api } from "@/lib/api";
 
 // Extract domain from URL to use as default feed name
 function extractDomainFromUrl(url: string): string {
@@ -57,7 +57,7 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
   const { data: feedsData, isLoading } = useQuery({
     queryKey: ["feeds"],
     queryFn: async () => {
-      const result = await invoke<Feed[]>("get_all_feeds");
+      const result = await api.feeds.getAll();
       return result;
     },
   });
@@ -85,11 +85,11 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
   const addFeedMutation = useMutation({
     mutationFn: async (url: string) => {
       const title = extractDomainFromUrl(url);
-      await invoke<Feed>("add_new_feed", {
+      await api.feeds.add({
         title,
         url,
-        description: null,
-        category: null,
+        description: undefined,
+        category: undefined,
       });
     },
     onSuccess: () => {
@@ -101,7 +101,7 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
 
   const deleteFeedMutation = useMutation({
     mutationFn: async (feedId: string) => {
-      await invoke("delete_feed", { id: feedId });
+      await api.feeds.delete(feedId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feeds"] });
@@ -120,12 +120,12 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
 
       // Delete and re-add with new title (simple approach)
       // In production, you'd want an update_feed command
-      await invoke("delete_feed", { id });
-      await invoke<Feed>("add_new_feed", {
+      await api.feeds.delete(id);
+      await api.feeds.add({
         title,
         url: feed.url,
-        description: feed.description || null,
-        category: feed.category || null,
+        description: feed.description,
+        category: feed.category,
       });
     },
     onSuccess: () => {
@@ -310,43 +310,71 @@ export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, 
         </div>
       </div>
 
-      {/* Add feed input */}
+      {/* Add feed modal */}
       {isAdding && (
-        <div className="absolute inset-x-0 bottom-0 bg-background border-t-2 border-primary p-3 shadow-lg">
-          <div className="space-y-2">
-            <input
-              type="url"
-              placeholder="RSS Feed URL"
-              value={newFeedUrl}
-              onChange={(e) => setNewFeedUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newFeedUrl.trim()) {
-                  handleAddFeed();
-                } else if (e.key === "Escape") {
-                  setIsAdding(false);
-                  setNewFeedUrl("");
-                }
-              }}
-              className="w-full px-3 py-2 text-sm border border-input rounded bg-background"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleAddFeed}
-                disabled={!newFeedUrl.trim()}
-                className="flex-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-              >
-                Add
-              </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg shadow-xl w-full max-w-md border border-border">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold">Add RSS Feed</h2>
               <button
                 onClick={() => {
                   setIsAdding(false);
                   setNewFeedUrl("");
                 }}
-                className="px-3 py-2 text-sm bg-muted rounded hover:bg-muted/80"
+                className="text-muted-foreground hover:text-foreground"
               >
-                Cancel
+                <Icon icon="mdi:close" className="text-xl" />
               </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enter the URL of the RSS feed you want to subscribe to.
+              </p>
+
+              <input
+                type="url"
+                placeholder="https://example.com/feed.xml"
+                value={newFeedUrl}
+                onChange={(e) => setNewFeedUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newFeedUrl.trim()) {
+                    handleAddFeed();
+                  } else if (e.key === "Escape") {
+                    setIsAdding(false);
+                    setNewFeedUrl("");
+                  }
+                }}
+                className="w-full px-3 py-2 text-sm border border-input rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                autoFocus
+              />
+
+              {addFeedMutation.isError && (
+                <div className="p-3 rounded text-sm bg-destructive/10 text-destructive">
+                  Failed to add feed. Please check the URL and try again.
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setIsAdding(false);
+                    setNewFeedUrl("");
+                  }}
+                  className="px-4 py-2 text-sm bg-muted rounded hover:bg-muted/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddFeed}
+                  disabled={!newFeedUrl.trim() || addFeedMutation.isPending}
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {addFeedMutation.isPending ? "Adding..." : "Add Feed"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

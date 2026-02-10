@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { Icon } from "@iconify-icon/react";
+import { api } from "@/lib/api";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ArticleViewProps {
   article: Article | null;
@@ -57,12 +58,22 @@ export function ArticleView({ article }: ArticleViewProps) {
       isActiveRef.current = true;
       setViewMode("original");
       setPhase("idle");
-      setTranslatedTitle("");
-      setTranslatedContent("");
-      setDisplayedTitle("");
-      setDisplayedContent("");
+      // Don't clear translation states immediately - wait for loading
       setHasTranslation(false);
-      loadSavedTranslation();
+      
+      // Load translation asynchronously
+      const loadTranslation = async () => {
+        // Clear previous translation
+        setTranslatedTitle("");
+        setTranslatedContent("");
+        setDisplayedTitle("");
+        setDisplayedContent("");
+        
+        // Load new translation
+        await loadSavedTranslation();
+      };
+      
+      loadTranslation();
     } else {
       isActiveRef.current = false;
       abortControllerRef.current?.abort();
@@ -72,17 +83,36 @@ export function ArticleView({ article }: ArticleViewProps) {
   const loadSavedTranslation = async () => {
     if (!article) return;
     try {
-      const saved = await invoke<string | null>("get_translation", {
+      const result = await api.translation.get(article.id);
+      const saved = result.content;
+      
+      console.log('[ArticleView] loadSavedTranslation:', {
         articleId: article.id,
+        hasSaved: !!saved,
+        savedLength: saved?.length || 0
       });
+      
       if (saved && isActiveRef.current) {
         const separatorIndex = saved.indexOf(SEPARATOR);
+        let title = "";
+        let content = "";
+        
         if (separatorIndex >= 0) {
-          setTranslatedTitle(saved.slice(0, separatorIndex));
-          setTranslatedContent(saved.slice(separatorIndex + SEPARATOR.length));
+          title = saved.slice(0, separatorIndex);
+          content = saved.slice(separatorIndex + SEPARATOR.length);
         } else {
-          setTranslatedContent(saved);
+          content = saved;
         }
+        
+        console.log('[ArticleView] Setting translation:', {
+          titleLength: title.length,
+          contentLength: content.length
+        });
+        
+        setTranslatedTitle(title);
+        setTranslatedContent(content);
+        setDisplayedTitle(title);
+        setDisplayedContent(content);
         setHasTranslation(true);
       }
     } catch (e) {
@@ -160,18 +190,12 @@ export function ArticleView({ article }: ArticleViewProps) {
       try {
         // Start both translations
         const titlePromise = title.trim()
-          ? invoke<string>("translate_text", {
-              text: title.slice(0, 200),
-              targetLang: "zh",
-            })
-          : Promise.resolve("");
+          ? api.translation.translate(title.slice(0, 200), "zh")
+          : Promise.resolve({ translatedText: "" });
 
         const contentPromise = content.trim()
-          ? invoke<string>("translate_text", {
-              text: content.slice(0, 5000),
-              targetLang: "zh",
-            })
-          : Promise.resolve("");
+          ? api.translation.translate(content.slice(0, 5000), "zh")
+          : Promise.resolve({ translatedText: "" });
 
         const [titleResult, contentResult] = await Promise.all([
           titlePromise,
@@ -181,24 +205,25 @@ export function ArticleView({ article }: ArticleViewProps) {
         if (!isActiveRef.current || abortControllerRef.current.signal.aborted)
           return;
 
-        setTranslatedTitle(titleResult);
-        setTranslatedContent(contentResult);
+        // Translation results are already in Markdown format (no need to clean)
+        const translatedTitleText = titleResult.translatedText;
+        const translatedContentText = contentResult.translatedText;
+
+        setTranslatedTitle(translatedTitleText);
+        setTranslatedContent(translatedContentText);
         setHasTranslation(true);
         setPhase("streaming");
 
-        // Save translation
-        const combined = titleResult + SEPARATOR + contentResult;
-        await invoke("save_translation", {
-          articleId: article.id,
-          content: combined,
-        });
+        // Save translation (Markdown format)
+        const combined = translatedTitleText + SEPARATOR + translatedContentText;
+        await api.translation.save(article.id, combined);
 
-        // Start streaming display
-        if (titleResult && isActiveRef.current) {
-          await streamText(titleResult, setDisplayedTitle, 15);
+        // Start streaming display with Markdown text
+        if (translatedTitleText && isActiveRef.current) {
+          await streamText(translatedTitleText, setDisplayedTitle, 15);
         }
-        if (contentResult && isActiveRef.current) {
-          await streamText(contentResult, setDisplayedContent, 8);
+        if (translatedContentText && isActiveRef.current) {
+          await streamText(translatedContentText, setDisplayedContent, 8);
         }
 
         if (isActiveRef.current) {
@@ -258,11 +283,14 @@ export function ArticleView({ article }: ArticleViewProps) {
     return feed?.title || "Unknown Feed";
   };
 
-  const handleOpenOriginal = () => {
+  const handleOpenOriginal = async () => {
     if (article) {
-      invoke("open_link", { url: article.link }).catch((e) => {
+      try {
+        const { open } = await import('@tauri-apps/plugin-opener');
+        await open(article.link);
+      } catch (e) {
         addErrorToast(`Failed to open: ${e}`);
-      });
+      }
     }
   };
 
@@ -279,11 +307,24 @@ export function ArticleView({ article }: ArticleViewProps) {
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
+    console.log('[ArticleView] handleViewModeChange:', {
+      mode,
+      hasTranslation,
+      phase,
+      translatedTitleLength: translatedTitle.length,
+      translatedContentLength: translatedContent.length,
+      displayedTitleLength: displayedTitle.length,
+      displayedContentLength: displayedContent.length
+    });
+    
     if (mode === "translated" && !hasTranslation && phase === "idle") {
       handleTranslate();
     } else {
       setViewMode(mode);
       if (mode === "translated" && hasTranslation) {
+        // When switching to translated mode with existing translation,
+        // set both the displayed and full content
+        console.log('[ArticleView] Setting displayed content from translated content');
         setDisplayedTitle(translatedTitle);
         setDisplayedContent(translatedContent);
       }
@@ -296,7 +337,7 @@ export function ArticleView({ article }: ArticleViewProps) {
     const newStarred = !currentlyStarred;
 
     try {
-      await invoke("toggle_starred", { id: article.id, starred: newStarred });
+      await api.articles.toggleStarred(article.id, newStarred);
       article.isStarred = newStarred ? 1 : 0;
     } catch {
       addErrorToast("Failed to toggle star");
@@ -308,18 +349,26 @@ export function ArticleView({ article }: ArticleViewProps) {
 
   const displayTitle =
     viewMode === "translated"
-      ? (isTranslating ? displayedTitle : translatedTitle) ||
+      ? (phase === "streaming" ? displayedTitle : translatedTitle) ||
         article?.title ||
         ""
       : article?.title || "";
 
   const displayContent =
     viewMode === "translated"
-      ? (isTranslating ? displayedContent : translatedContent) ||
+      ? (phase === "streaming" ? displayedContent : translatedContent) ||
         article?.content ||
         article?.summary ||
         ""
       : article?.content || article?.summary || "";
+  
+  console.log('[ArticleView] Render:', {
+    viewMode,
+    phase,
+    hasTranslation,
+    displayTitleLength: displayTitle.length,
+    displayContentLength: displayContent.length
+  });
 
   if (!article) {
     return (
@@ -467,7 +516,8 @@ export function ArticleView({ article }: ArticleViewProps) {
         {/* Streaming or completed content */}
         {(phase === "streaming" ||
           phase === "completed" ||
-          viewMode === "original") && (
+          viewMode === "original" ||
+          (viewMode === "translated" && hasTranslation)) && (
           <>
             {!displayContent || displayContent.trim() === "" ? (
               <div className="text-muted-foreground text-center py-8">
@@ -484,12 +534,7 @@ export function ArticleView({ article }: ArticleViewProps) {
                 </button>
               </div>
             ) : (
-              <article
-                className="prose prose-slate dark:prose-invert prose-img:rounded-lg prose-headings:font-semibold prose-a:text-primary hover:prose-a:text-primary/80 prose-blockquote:border-l-4 prose-blockquote:border-primary/30 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: displayContent.replace(/\n/g, "<br/>"),
-                }}
-              />
+              <MarkdownRenderer content={displayContent} />
             )}
           </>
         )}

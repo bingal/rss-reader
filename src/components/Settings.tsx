@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAppStore } from "@/stores/useAppStore";
 import { Icon } from "@iconify-icon/react";
-import { invoke } from "@tauri-apps/api/core";
+import { api } from "@/lib/api";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -25,22 +25,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
     // Save to backend database for translation settings
     try {
-      await invoke("set_app_setting", {
-        key: "translation_base_url",
-        value: formData.baseUrl,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_api_key",
-        value: formData.apiKey,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_model",
-        value: formData.model,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_prompt",
-        value: formData.prompt,
-      });
+      await api.settings.set("translation_base_url", formData.baseUrl);
+      await api.settings.set("translation_api_key", formData.apiKey);
+      await api.settings.set("translation_model", formData.model);
+      await api.settings.set("translation_prompt", formData.prompt);
     } catch (e) {
       console.error("Failed to save settings to backend:", e);
     }
@@ -60,22 +48,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
     // Also reset backend settings
     try {
-      await invoke("set_app_setting", {
-        key: "translation_base_url",
-        value: defaultSettings.baseUrl,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_api_key",
-        value: defaultSettings.apiKey,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_model",
-        value: defaultSettings.model,
-      });
-      await invoke("set_app_setting", {
-        key: "translation_prompt",
-        value: defaultSettings.prompt,
-      });
+      await api.settings.set("translation_base_url", defaultSettings.baseUrl);
+      await api.settings.set("translation_api_key", defaultSettings.apiKey);
+      await api.settings.set("translation_model", defaultSettings.model);
+      await api.settings.set("translation_prompt", defaultSettings.prompt);
     } catch (e) {
       console.error("Failed to reset settings in backend:", e);
     }
