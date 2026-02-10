@@ -7,13 +7,13 @@ let db: Database | null = null;
 let lastError: Error | null = null;
 let isInitializing = false;
 
-function getDbPath(): string {
-  const dataDir = join(
-    homedir(),
-    "Library",
-    "Application Support",
-    "rss-reader",
-  );
+/**
+ * Get database directory path
+ * Uses ~/.rss-reader/ to avoid macOS permission issues with Library/Application Support
+ */
+function getDbDir(): string {
+  // Use hidden folder in home directory to avoid permission issues
+  const dataDir = join(homedir(), ".rss-reader");
 
   if (!existsSync(dataDir)) {
     try {
@@ -25,7 +25,11 @@ function getDbPath(): string {
     }
   }
 
-  return join(dataDir, "data.db");
+  return dataDir;
+}
+
+function getDbPath(): string {
+  return join(getDbDir(), "data.db");
 }
 
 export function initializeDatabase(): boolean {
@@ -103,11 +107,13 @@ export function getDatabaseStatus(): {
   initialized: boolean;
   error: string | null;
   isInitializing: boolean;
+  dbPath: string;
 } {
   return {
     initialized: db !== null && lastError === null,
     error: lastError?.message || null,
     isInitializing,
+    dbPath: getDbPath(),
   };
 }
 
