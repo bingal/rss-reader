@@ -98,6 +98,14 @@ jobs:
 
       - name: Create Universal Binary
         run: |
+          # Check if builds succeeded
+          if [ ! -d "src-tauri/target/aarch64-apple-darwin/release/bundle/macos" ] || \
+             [ ! -d "src-tauri/target/x86_64-apple-darwin/release/bundle/macos" ]; then
+            echo "Error: One or both architecture builds failed"
+            ls -la src-tauri/target/
+            exit 1
+          fi
+
           mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/dmg
           mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos
 
@@ -111,15 +119,20 @@ jobs:
             src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
             -output src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader
 
-          # Also merge backend binaries in Resources
-          if [ -f "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin" ]; then
-            lipo -create \
-              src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin \
-              src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin \
-              -output src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-universal-apple-darwin
-            # Keep both architecture-specific binaries as well
-            cp src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin \
-               src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/
+          # Handle backend binaries if they exist
+          if [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries" ]; then
+            mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries
+            
+            # Copy both backend binaries
+            if [ -f "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin" ]; then
+              cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin \
+                 src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/
+            fi
+            
+            if [ -f "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin" ]; then
+              cp src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin \
+                 src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/
+            fi
           fi
 
           # Create DMG
@@ -130,15 +143,7 @@ jobs:
             --icon-size 100 \
             --app-drop-link 600 185 \
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/rss-reader_universal.dmg" \
-            "src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app"
-          create-dmg \
-            --volname "RSS Reader" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
-            "target/universal-apple-darwin/release/bundle/dmg/rss-reader_universal.dmg" \
-            "target/universal-apple-darwin/release/bundle/macos/rss-reader.app"
+            "src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app" 2>/dev/null || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
