@@ -4,17 +4,20 @@ import { ArticleList } from "./components/ArticleList";
 import { ArticleView } from "./components/ArticleView";
 import { OPMLImport } from "./components/OPMLImport";
 import { Settings } from "./components/Settings";
+import { KeyboardShortcutsHelp } from "./components/KeyboardShortcutsHelp";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 function App() {
-  const { theme, setTheme, updateSettings } = useAppStore();
+  const { theme, setTheme, updateSettings, selectedFeedId, filter } =
+    useAppStore();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const queryClient = useQueryClient();
 
   // Load settings from backend on startup
@@ -48,10 +51,20 @@ function App() {
     loadSettings();
   }, [updateSettings]);
 
-  // Get articles from query cache for keyboard navigation
-  const articlesData =
-    queryClient.getQueryData<Article[]>(["articles", null, 50]) || [];
-  const articles = Array.isArray(articlesData) ? articlesData : [];
+  // Fetch articles for keyboard navigation - use same query key as ArticleList
+  const limit = 50;
+  const { data: articlesData } = useQuery({
+    queryKey: ["articles", selectedFeedId, filter, limit],
+    queryFn: async () => {
+      return await api.articles.fetch({
+        feedId: selectedFeedId || undefined,
+        filter,
+        limit,
+        offset: 0,
+      });
+    },
+  });
+  const articles = articlesData || [];
 
   // Apply theme
   document.documentElement.classList.remove("light", "dark");
@@ -88,6 +101,19 @@ function App() {
     setTheme(themes[(currentIndex + 1) % themes.length]);
   };
 
+  const handleToggleStar = async (
+    articleId: string,
+    currentStarred: boolean,
+  ) => {
+    try {
+      await api.articles.toggleStarred(articleId, !currentStarred);
+      // Invalidate articles cache to refresh star status
+      await queryClient.invalidateQueries({ queryKey: ["articles"] });
+    } catch (e) {
+      console.error("Failed to toggle star:", e);
+    }
+  };
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     articles,
@@ -95,6 +121,8 @@ function App() {
     onSelectArticle: setSelectedArticle,
     onRefresh: handleRefresh,
     onToggleTheme: handleToggleTheme,
+    onToggleStar: handleToggleStar,
+    onShowShortcuts: () => setShowShortcuts(true),
   });
 
   return (
@@ -121,7 +149,12 @@ function App() {
           {articles.length} articles
           {selectedArticle && " • Selected"}
         </span>
-        <span>Press ? for keyboard shortcuts</span>
+        <button
+          onClick={() => setShowShortcuts(true)}
+          className="transition-colors hover:text-foreground"
+        >
+          Press ? for keyboard shortcuts
+        </button>
       </footer>
 
       {/* OPML Modal */}
@@ -129,6 +162,12 @@ function App() {
 
       {/* Settings Modal */}
       <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <KeyboardShortcutsHelp
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }

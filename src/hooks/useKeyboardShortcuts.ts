@@ -7,6 +7,8 @@ interface UseKeyboardShortcutsProps {
   onSelectArticle: (article: Article | null) => void;
   onRefresh?: () => void;
   onToggleTheme?: () => void;
+  onToggleStar?: (articleId: string, currentStarred: boolean) => void;
+  onShowShortcuts?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -15,6 +17,8 @@ export function useKeyboardShortcuts({
   onSelectArticle,
   onRefresh,
   onToggleTheme,
+  onToggleStar,
+  onShowShortcuts,
 }: UseKeyboardShortcutsProps) {
   const navigate = useCallback(
     (direction: "up" | "down") => {
@@ -86,16 +90,20 @@ export function useKeyboardShortcuts({
           onToggleTheme?.();
           break;
         case "s":
-          event.preventDefault();
+          // Only handle 's' key when not combined with Ctrl or Meta (avoid triggering on Ctrl+S / Cmd+S)
           if (!event.ctrlKey && !event.metaKey) {
-            onSelectArticle(
-              articles.find((a) => a.id === selectedArticleId) || null,
-            );
+            event.preventDefault();
+            if (selectedArticleId) {
+              const article = articles.find((a) => a.id === selectedArticleId);
+              if (article && onToggleStar) {
+                onToggleStar(selectedArticleId, article.isStarred === 1);
+              }
+            }
           }
           break;
         case "?":
           event.preventDefault();
-          // Show help (not implemented)
+          onShowShortcuts?.();
           break;
       }
     },
@@ -105,7 +113,8 @@ export function useKeyboardShortcuts({
       navigate,
       onRefresh,
       onToggleTheme,
-      onSelectArticle,
+      onToggleStar,
+      onShowShortcuts,
     ],
   );
 

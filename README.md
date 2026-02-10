@@ -2,7 +2,7 @@
 
 A fast, comfortable RSS reader desktop app built with Tauri 2.x + Bun sidecar architecture.
 
-![RSS Reader](https://via.placeholder.com/800x400?text=RSS+Reader)
+![RSS Reader](./src-tauri/icons/icon.svg)
 
 ## ✨ Features
 
