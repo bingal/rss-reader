@@ -1,31 +1,45 @@
 import type { MiddlewareHandler } from "hono";
-import { resetDatabase, getDatabaseStatus } from "@/db/connection";
+import { getDatabaseStatus, initializeDatabase } from "@/db/connection";
 
 /**
- * Hono middleware to check database status and handle reinitialization
- * This should be used early in the middleware chain
+ * Hono middleware to ensure database is initialized before handling requests
+ * If database is not ready, it will try to initialize it
  */
-export const dbRetryMiddleware: MiddlewareHandler = async (_c, next) => {
+export const dbRetryMiddleware: MiddlewareHandler = async (c, next) => {
   const status = getDatabaseStatus();
 
-  // If database is not initialized, try to reset it
-  if (!status.initialized) {
+  // If not initialized and not currently initializing, try to initialize
+  if (!status.initialized && !status.isInitializing) {
     console.log(
-      "[DB Middleware] Database not initialized, attempting reset...",
+      "[DB Middleware] Database not ready, attempting initialization...",
     );
-    try {
-      resetDatabase();
-      // Try to get database to verify it works
-      const { getDatabase } = await import("@/db/connection");
-      getDatabase();
-      console.log("[DB Middleware] Database reinitialized successfully");
-    } catch (error: any) {
-      console.error(
-        "[DB Middleware] Failed to reinitialize database:",
-        error.message,
+    const success = initializeDatabase();
+
+    if (!success) {
+      console.error("[DB Middleware] Failed to initialize database");
+      // Return 503 Service Unavailable with helpful message
+      return c.json(
+        {
+          error: "Database not available",
+          message:
+            "Please grant the application permission to access Application Support folder and try again",
+          code: "DB_NOT_INITIALIZED",
+        },
+        503,
       );
-      // Continue to the route - it will fail with proper error message
     }
+  }
+
+  // If currently initializing, return 503
+  if (status.isInitializing) {
+    return c.json(
+      {
+        error: "Database is initializing",
+        message: "Please wait a moment and try again",
+        code: "DB_INITIALIZING",
+      },
+      503,
+    );
   }
 
   await next();

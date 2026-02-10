@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { dbRetryMiddleware } from "@/middleware/dbRetry";
+import { initializeDatabase, getDatabaseStatus } from "@/db/connection";
 import feedsRouter from "./routes/feeds";
 import articlesRouter from "./routes/articles";
 import settingsRouter from "./routes/settings";
@@ -13,11 +14,21 @@ const app = new Hono();
 app.use("*", logger());
 app.use("*", cors());
 
-// Database retry middleware - handles permission/reinitialization issues
-app.use("*", dbRetryMiddleware);
+// Health check - no database required
+app.get("/health", (c) =>
+  c.json({
+    status: "ok",
+    timestamp: Date.now(),
+    database: getDatabaseStatus(),
+  }),
+);
 
-// Health check
-app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+// Try to initialize database on startup (but don't block if it fails)
+console.log("[Server] Attempting initial database setup...");
+initializeDatabase();
+
+// Database retry middleware - ensures database is ready for API routes
+app.use("/api/*", dbRetryMiddleware);
 
 // API routes
 app.route("/api/feeds", feedsRouter);

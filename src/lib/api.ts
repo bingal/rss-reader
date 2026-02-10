@@ -125,6 +125,12 @@ export const api = {
       });
       const data = await response.json();
       if (!response.ok) {
+        // Handle database permission error
+        if (data.code === "DB_NOT_INITIALIZED") {
+          throw new Error(
+            "Database permission required. Please grant access to Application Support folder and try again.",
+          );
+        }
         throw new Error(data.error || "Failed to refresh all feeds");
       }
       return data;

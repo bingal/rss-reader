@@ -4,7 +4,8 @@ import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 
 let db: Database | null = null;
-let initError: Error | null = null;
+let lastError: Error | null = null;
+let isInitializing = false;
 
 function getDbPath(): string {
   const dataDir = join(
@@ -15,34 +16,70 @@ function getDbPath(): string {
   );
 
   if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true });
+    try {
+      mkdirSync(dataDir, { recursive: true });
+      console.log("[DB] Created data directory:", dataDir);
+    } catch (error: any) {
+      console.error("[DB] Failed to create data directory:", error.message);
+      throw error;
+    }
   }
 
   return join(dataDir, "data.db");
 }
 
-export function getDatabase(): Database {
-  // If there was a previous error, try to reinitialize
-  if (db && initError) {
-    console.log(
-      "[DB] Previous init error detected, attempting to reinitialize...",
-    );
-    closeDatabase();
+export function initializeDatabase(): boolean {
+  // Prevent concurrent initialization attempts
+  if (isInitializing) {
+    console.log("[DB] Initialization already in progress...");
+    return false;
   }
 
-  if (!db) {
-    try {
-      const dbPath = getDbPath();
-      console.log("[DB] Initializing database at:", dbPath);
-      db = new Database(dbPath, { create: true });
-      db.exec("PRAGMA journal_mode = WAL");
-      initializeSchema(db);
-      initError = null;
-      console.log("[DB] Database initialized successfully");
-    } catch (error: any) {
-      initError = error;
-      console.error("[DB] Failed to initialize database:", error.message);
-      throw error;
+  // If already initialized successfully, no need to reinitialize
+  if (db && !lastError) {
+    return true;
+  }
+
+  isInitializing = true;
+  console.log("[DB] Starting database initialization...");
+
+  try {
+    // Close existing connection if any
+    if (db) {
+      try {
+        db.close();
+      } catch {
+        // Ignore close errors
+      }
+      db = null;
+    }
+
+    const dbPath = getDbPath();
+    console.log("[DB] Opening database at:", dbPath);
+
+    db = new Database(dbPath, { create: true });
+    db.exec("PRAGMA journal_mode = WAL");
+    initializeSchema(db);
+
+    lastError = null;
+    console.log("[DB] Database initialized successfully");
+    return true;
+  } catch (error: any) {
+    lastError = error;
+    console.error("[DB] Failed to initialize database:", error.message);
+    db = null;
+    return false;
+  } finally {
+    isInitializing = false;
+  }
+}
+
+export function getDatabase(): Database {
+  // Try to initialize if not ready
+  if (!db || lastError) {
+    const success = initializeDatabase();
+    if (!success || !db) {
+      throw lastError || new Error("Database not initialized");
     }
   }
   return db;
@@ -50,17 +87,27 @@ export function getDatabase(): Database {
 
 export function resetDatabase(): void {
   console.log("[DB] Resetting database connection...");
-  closeDatabase();
-  initError = null;
+  if (db) {
+    try {
+      db.close();
+    } catch {
+      // Ignore close errors
+    }
+    db = null;
+  }
+  lastError = null;
+  isInitializing = false;
 }
 
 export function getDatabaseStatus(): {
   initialized: boolean;
   error: string | null;
+  isInitializing: boolean;
 } {
   return {
-    initialized: db !== null && initError === null,
-    error: initError?.message || null,
+    initialized: db !== null && lastError === null,
+    error: lastError?.message || null,
+    isInitializing,
   };
 }
 
@@ -129,9 +176,11 @@ export function closeDatabase(): void {
     try {
       db.close();
       console.log("[DB] Database connection closed");
-    } catch (error) {
-      console.error("[DB] Error closing database:", error);
+    } catch {
+      // Ignore close errors
     }
     db = null;
   }
+  lastError = null;
+  isInitializing = false;
 }

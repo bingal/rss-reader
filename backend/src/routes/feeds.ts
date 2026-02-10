@@ -56,11 +56,11 @@ app.get("/", (c) => {
 app.post("/", async (c) => {
   const { title, url, description, category } = await c.req.json();
 
-  const db = getDatabase();
-  const id = randomUUID();
-  const now = Math.floor(Date.now() / 1000);
-
   try {
+    const db = getDatabase();
+    const id = randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+
     const query = db.query(`
       INSERT INTO feeds (id, title, url, description, category, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -79,6 +79,7 @@ app.post("/", async (c) => {
 
     return c.json(feed, 201);
   } catch (error: any) {
+    console.error("[Feeds] Failed to add feed:", error.message);
     return c.json({ error: error.message || "Failed to add feed" }, 400);
   }
 });
@@ -86,9 +87,10 @@ app.post("/", async (c) => {
 // DELETE /api/feeds/:id - Delete feed
 app.delete("/:id", (c) => {
   const { id } = c.req.param();
-  const db = getDatabase();
 
   try {
+    const db = getDatabase();
+
     // Delete articles first
     db.query("DELETE FROM articles WHERE feed_id = ?").run(id);
 
@@ -101,6 +103,7 @@ app.delete("/:id", (c) => {
 
     return c.json({ success: true });
   } catch (error: any) {
+    console.error("[Feeds] Failed to delete feed:", error.message);
     return c.json({ error: error.message || "Failed to delete feed" }, 400);
   }
 });
@@ -108,9 +111,10 @@ app.delete("/:id", (c) => {
 // POST /api/feeds/:id/refresh - Refresh specific feed
 app.post("/:id/refresh", async (c) => {
   const { id } = c.req.param();
-  const db = getDatabase();
 
   try {
+    const db = getDatabase();
+
     // Get feed URL
     const query = db.query("SELECT url FROM feeds WHERE id = ?");
     const feed = query.get(id) as { url: string } | null;
@@ -161,15 +165,15 @@ app.post("/:id/refresh", async (c) => {
 
     return c.json({ count: savedCount });
   } catch (error: any) {
+    console.error("[Feeds] Failed to refresh feed:", error.message);
     return c.json({ error: error.message || "Failed to refresh feed" }, 400);
   }
 });
 
 // POST /api/feeds/refresh-all - Refresh all feeds
 app.post("/refresh-all", async (c) => {
-  const db = getDatabase();
-
   try {
+    const db = getDatabase();
     const feedsQuery = db.query("SELECT id, url, title FROM feeds");
     const feeds = feedsQuery.all() as {
       id: string;
