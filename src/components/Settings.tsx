@@ -34,6 +34,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         value: formData.apiKey,
       });
       await invoke("set_app_setting", {
+        key: "translation_model",
+        value: formData.model,
+      });
+      await invoke("set_app_setting", {
         key: "translation_prompt",
         value: formData.prompt,
       });
@@ -48,6 +52,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     const defaultSettings = {
       apiKey: "",
       baseUrl: "https://libretranslate.com",
+      model: "gpt-3.5-turbo",
       prompt: "Translate the following text to Chinese:",
     };
     setFormData(defaultSettings);
@@ -62,6 +67,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
       await invoke("set_app_setting", {
         key: "translation_api_key",
         value: defaultSettings.apiKey,
+      });
+      await invoke("set_app_setting", {
+        key: "translation_model",
+        value: defaultSettings.model,
       });
       await invoke("set_app_setting", {
         key: "translation_prompt",
@@ -140,6 +149,26 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Required for some translation services
+                </p>
+              </div>
+
+              {/* Model */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Model Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.model}
+                  onChange={(e) =>
+                    setFormData({ ...formData, model: e.target.value })
+                  }
+                  placeholder="gpt-3.5-turbo"
+                  className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Model name for OpenAI-compatible APIs (e.g., gpt-3.5-turbo,
+                  gpt-4, claude-3-sonnet)
                 </p>
               </div>
 

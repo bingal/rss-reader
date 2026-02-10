@@ -108,12 +108,15 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
     let api_key = get_setting("translation_api_key".to_string())?
         .unwrap_or_default();
     
+    let model = get_setting("translation_model".to_string())?
+        .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+    
     let prompt = get_setting("translation_prompt".to_string())?
         .unwrap_or_else(|| "Translate the following text to Chinese:".to_string());
     
     // Debug logging
-    eprintln!("[translate] base_url: {}, has_api_key: {}, prompt: {}", 
-              base_url, !api_key.is_empty(), prompt);
+    eprintln!("[translate] base_url: {}, model: {}, has_api_key: {}", 
+              base_url, model, !api_key.is_empty());
     
     // Determine if this is OpenAI API or LibreTranslate
     // Check for explicit OpenAI URL patterns or API key presence with non-default URL
@@ -132,7 +135,7 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
         eprintln!("[translate] Using OpenAI API: {}", api_url);
         
         let request_body = serde_json::json!({
-            "model": "gpt-3.5-turbo",
+            "model": model,
             "messages": [
                 {
                     "role": "system",

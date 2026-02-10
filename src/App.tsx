@@ -28,6 +28,9 @@ function App() {
         const apiKey = await invoke<string | null>("get_app_setting", {
           key: "translation_api_key",
         });
+        const model = await invoke<string | null>("get_app_setting", {
+          key: "translation_model",
+        });
         const prompt = await invoke<string | null>("get_app_setting", {
           key: "translation_prompt",
         });
@@ -35,6 +38,7 @@ function App() {
         updateSettings({
           baseUrl: baseUrl || "https://libretranslate.com",
           apiKey: apiKey || "",
+          model: model || "gpt-3.5-turbo",
           prompt: prompt || "Translate the following text to Chinese:",
         });
       } catch (e) {

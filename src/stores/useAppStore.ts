@@ -7,6 +7,7 @@ export type ArticleFilter = "all" | "unread" | "starred";
 export interface TranslationSettings {
   apiKey: string;
   baseUrl: string;
+  model: string;
   prompt: string;
 }
 
@@ -101,6 +102,7 @@ export const useAppStore = create<AppState>()(
       settings: {
         apiKey: "",
         baseUrl: "https://libretranslate.com",
+        model: "gpt-3.5-turbo",
         prompt: "Translate the following text to Chinese:",
       },
       updateSettings: (newSettings) =>
