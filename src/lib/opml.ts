@@ -1,4 +1,5 @@
 import { Feed } from "@/stores/useAppStore";
+import { api } from "@/lib/api";
 
 export interface OPMLOutline {
   "@_text"?: string;
@@ -82,12 +83,11 @@ export async function importFromOPML(
     // Import extracted feeds
     for (const { title, url } of rssOutlines) {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("add_new_feed", {
+        await api.feeds.add({
           title,
           url,
-          description: null,
-          category: null,
+          description: undefined,
+          category: undefined,
         });
         count++;
       } catch (e) {

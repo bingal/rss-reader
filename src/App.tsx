@@ -7,7 +7,7 @@ import { Settings } from "./components/Settings";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useQueryClient } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import { api } from "@/lib/api";
 
 function App() {
   const { theme, setTheme, updateSettings } = useAppStore();
@@ -15,33 +15,35 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const queryClient = useQueryClient();
 
   // Load settings from backend on startup
   useEffect(() => {
     async function loadSettings() {
       try {
-        const baseUrl = await invoke<string | null>("get_app_setting", {
-          key: "translation_base_url",
-        });
-        const apiKey = await invoke<string | null>("get_app_setting", {
-          key: "translation_api_key",
-        });
-        const model = await invoke<string | null>("get_app_setting", {
-          key: "translation_model",
-        });
-        const prompt = await invoke<string | null>("get_app_setting", {
-          key: "translation_prompt",
-        });
+        const baseUrl = await api.settings.get("translation_base_url");
+        const apiKey = await api.settings.get("translation_api_key");
+        const model = await api.settings.get("translation_model");
+        const prompt = await api.settings.get("translation_prompt");
 
         updateSettings({
-          baseUrl: baseUrl || "https://libretranslate.com",
-          apiKey: apiKey || "",
-          model: model || "gpt-3.5-turbo",
-          prompt: prompt || "Translate the following text to Chinese:",
+          baseUrl: baseUrl.value || "https://libretranslate.com",
+          apiKey: apiKey.value || "",
+          model: model.value || "gpt-3.5-turbo",
+          prompt: prompt.value || "Translate the following text to Chinese:",
         });
       } catch (e) {
         console.error("Failed to load settings:", e);
+      } finally {
+        // Mark as ready and hide loading screen
+        setIsReady(true);
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+          }
+        }, 100);
       }
     }
 
@@ -69,8 +71,8 @@ function App() {
     if (isRefreshing) return; // Prevent double clicks
     setIsRefreshing(true);
     try {
-      const result = await invoke<number>("refresh_all_feeds");
-      console.log(`Refreshed ${result} articles`);
+      const result = await api.feeds.refreshAll();
+      console.log(`Refreshed ${result.count} articles`);
       // Invalidate and refetch articles
       await queryClient.invalidateQueries({ queryKey: ["articles"] });
     } catch (e) {

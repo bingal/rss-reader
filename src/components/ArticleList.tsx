@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify-icon/react";
+import { api } from "@/lib/api";
 
 interface ArticleListProps {
   onSelectArticle: (article: Article) => void;
@@ -22,8 +22,8 @@ export function ArticleList({
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", selectedFeedId, filter, limit],
     queryFn: async () => {
-      const result = await invoke<Article[]>("fetch_articles", {
-        feedId: selectedFeedId,
+      const result = await api.articles.fetch({
+        feedId: selectedFeedId || undefined,
         filter,
         limit,
         offset: 0,
@@ -46,7 +46,7 @@ export function ArticleList({
       markArticleAsRead(article.id);
       
       // Update backend and refresh article list
-      invoke("mark_read", { id: article.id, read: true })
+      api.articles.markRead(article.id, true)
         .then(() => {
           // Invalidate articles cache to refresh read status
           queryClient.invalidateQueries({ queryKey: ["articles"] });
