@@ -45,6 +45,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/backend"]
+    "resources": ["binaries/*"]
   }
 }
