@@ -145,11 +145,11 @@ if [ "$TARGET" = "universal-apple-darwin" ]; then
     
     # Build Tauri for both architectures
     echo "Building Tauri for aarch64..."
-    bun run tauri build -- --target aarch64-apple-darwin
+    cd src-tauri && cargo tauri build --target aarch64-apple-darwin && cd ..
     echo ""
     
     echo "Building Tauri for x86_64..."
-    bun run tauri build -- --target x86_64-apple-darwin
+    cd src-tauri && cargo tauri build --target x86_64-apple-darwin && cd ..
     echo ""
     
     # Create universal binary
@@ -191,7 +191,7 @@ elif [ "$TARGET" = "aarch64-apple-darwin" ]; then
     echo -e "${GREEN}Backend binary built${NC}"
     echo ""
     
-    bun run tauri build -- --target aarch64-apple-darwin
+    cd src-tauri && cargo tauri build --target aarch64-apple-darwin && cd ..
 else
     echo "Building backend for Intel..."
     cd backend
@@ -201,7 +201,7 @@ else
     echo -e "${GREEN}Backend binary built${NC}"
     echo ""
     
-    bun run tauri build -- --target x86_64-apple-darwin
+    cd src-tauri && cargo tauri build --target x86_64-apple-darwin && cd ..
 fi
 
 # Check if DMG was created

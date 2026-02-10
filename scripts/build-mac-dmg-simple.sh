@@ -103,8 +103,9 @@ export TAURI_SIGNING_PRIVATE_KEY=""
 export TAURI_KEY_PASSWORD=""
 export MACOSX_DEPLOYMENT_TARGET="10.13"
 
-# Build with Tauri
-bun run tauri build -- --target "$TARGET"
+# Build with Tauri (use cargo to avoid bundling issues)
+echo "Building with cargo tauri..."
+cd src-tauri && cargo tauri build --target "$TARGET" && cd ..
 
 # Find DMG
 DMG_DIR="src-tauri/target/$TARGET/release/bundle/dmg"
