@@ -41,10 +41,12 @@ fn get_sidecar_path(app: &tauri::AppHandle) -> PathBuf {
             .join(binary_name);
     }
     
-    // In production, use the bundled resource
-    app.path().resource_dir()
-        .expect("failed to get resource directory")
-        .join("binaries")
+    // In production, the sidecar is placed in the same directory as the main binary
+    // (Contents/MacOS/ on macOS)
+    app.path().current_exe()
+        .expect("failed to get current executable path")
+        .parent()
+        .expect("failed to get executable directory")
         .join(binary_name)
 }
 
