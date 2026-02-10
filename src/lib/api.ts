@@ -68,7 +68,7 @@ export interface Article {
   content: string;
   summary?: string;
   author?: string;
-  pubDate?: number;
+  pubDate: number | null;
   isRead: number;
   isStarred: number;
   fetchedAt: number;

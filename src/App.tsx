@@ -35,8 +35,7 @@ function App() {
       } catch (e) {
         console.error("Failed to load settings:", e);
       } finally {
-        // Mark as ready and hide loading screen
-        setIsReady(true);
+        // Hide loading screen
         setTimeout(() => {
           const loadingScreen = document.getElementById("loading-screen");
           if (loadingScreen) {

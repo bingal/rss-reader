@@ -287,8 +287,8 @@ export function ArticleView({ article }: ArticleViewProps) {
   const handleOpenOriginal = async () => {
     if (article) {
       try {
-        const { open } = await import("@tauri-apps/plugin-opener");
-        await open(article.link);
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(article.link);
       } catch (e) {
         addErrorToast(`Failed to open: ${e}`);
       }
