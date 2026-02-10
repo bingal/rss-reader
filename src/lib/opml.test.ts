@@ -6,6 +6,22 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock api module
+vi.mock("@/lib/api", () => ({
+  api: {
+    feeds: {
+      add: vi.fn().mockResolvedValue({
+        id: "mock-id",
+        title: "Mock Feed",
+        url: "https://mock.com/feed",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    },
+  },
+  getApiBaseUrl: vi.fn().mockResolvedValue("http://localhost:3456"),
+}));
+
 describe("OPML Utilities", () => {
   const mockFeeds = [
     {

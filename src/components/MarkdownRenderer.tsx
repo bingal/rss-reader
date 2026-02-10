@@ -49,13 +49,20 @@ export function MarkdownRenderer({
       />
     ),
 
-    code: (props: { node?: unknown; inline?: boolean; className?: string; children?: React.ReactNode }) => {
+    code: (props: {
+      node?: unknown;
+      inline?: boolean;
+      className?: string;
+      children?: React.ReactNode;
+    }) => {
       const { inline, ...rest } = props;
       return (
         <code
           {...rest}
           className={
-            inline ? "bg-muted px-1.5 py-0.5 rounded text-sm text-foreground" : ""
+            inline
+              ? "bg-muted px-1.5 py-0.5 rounded text-sm text-foreground"
+              : ""
           }
         />
       );
