@@ -15,70 +15,8 @@ interface Toast {
 
 type ViewMode = "original" | "translated";
 
-// Streaming text hook
-function useStreamingText(
-  fullText: string,
-  isActive: boolean,
-  speed: number = 15,
-) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isComplete, setIsComplete] = useState(false);
-  const indexRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef(0);
-
-  useEffect(() => {
-    if (!isActive || !fullText) {
-      setDisplayedText(fullText || "");
-      setIsComplete(true);
-      return;
-    }
-
-    indexRef.current = 0;
-    setDisplayedText("");
-    setIsComplete(false);
-    lastTimeRef.current = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - lastTimeRef.current;
-
-      if (elapsed >= speed) {
-        const charsToAdd = Math.max(1, Math.floor(elapsed / speed));
-        const newIndex = Math.min(
-          indexRef.current + charsToAdd,
-          fullText.length,
-        );
-
-        if (newIndex > indexRef.current) {
-          setDisplayedText(fullText.slice(0, newIndex));
-          indexRef.current = newIndex;
-        }
-
-        lastTimeRef.current = currentTime;
-      }
-
-      if (indexRef.current < fullText.length) {
-        rafRef.current = requestAnimationFrame(animate);
-      } else {
-        setIsComplete(true);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, [fullText, isActive, speed]);
-
-  return {
-    displayedText,
-    isComplete,
-    progress: fullText ? indexRef.current / fullText.length : 0,
-  };
-}
+// Format translation for storage: title + separator + content
+const SEPARATOR = "\n\n===CONTENT===\n\n";
 
 export function ArticleView({ article }: ArticleViewProps) {
   const { feeds } = useAppStore();
@@ -88,35 +26,86 @@ export function ArticleView({ article }: ArticleViewProps) {
   // Translation content
   const [translatedTitle, setTranslatedTitle] = useState<string>("");
   const [translatedContent, setTranslatedContent] = useState<string>("");
+  const [displayedTitle, setDisplayedTitle] = useState<string>("");
+  const [displayedContent, setDisplayedContent] = useState<string>("");
   const [hasTranslation, setHasTranslation] = useState(false);
 
   // Toasts - only for errors
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Streaming display
-  const { displayedText: displayedTitle, isComplete: titleComplete } =
-    useStreamingText(translatedTitle, isTranslating && !!translatedTitle, 20);
-  const { displayedText: displayedContent, progress } = useStreamingText(
-    translatedContent,
-    isTranslating && !!translatedContent,
-    10,
-  );
+  // Streaming refs
+  const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopStreaming();
+    };
+  }, []);
 
   // Load saved translation when article changes
   useEffect(() => {
     if (article) {
       setViewMode("original");
-      setTranslatedTitle("");
-      setTranslatedContent("");
-      setIsTranslating(false);
+      stopStreaming();
+      resetTranslationState();
       loadSavedTranslation();
     } else {
-      setTranslatedTitle("");
-      setTranslatedContent("");
-      setHasTranslation(false);
-      setViewMode("original");
+      resetTranslationState();
     }
   }, [article?.id]);
+
+  const resetTranslationState = () => {
+    setTranslatedTitle("");
+    setTranslatedContent("");
+    setDisplayedTitle("");
+    setDisplayedContent("");
+    setHasTranslation(false);
+    setIsTranslating(false);
+    isCancelledRef.current = false;
+  };
+
+  const stopStreaming = () => {
+    if (streamIntervalRef.current) {
+      clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+  };
+
+  // Stream text with smooth animation
+  const streamText = (
+    fullText: string,
+    setDisplay: (text: string) => void,
+    speed: number = 15,
+  ) => {
+    return new Promise<void>((resolve) => {
+      let index = 0;
+      setDisplay("");
+
+      streamIntervalRef.current = setInterval(() => {
+        if (isCancelledRef.current) {
+          stopStreaming();
+          resolve();
+          return;
+        }
+
+        // Add multiple characters at once for smoother appearance
+        const charsToAdd = Math.max(1, Math.floor(speed / 5));
+        const newIndex = Math.min(index + charsToAdd, fullText.length);
+
+        if (newIndex > index) {
+          setDisplay(fullText.slice(0, newIndex));
+          index = newIndex;
+        }
+
+        if (index >= fullText.length) {
+          stopStreaming();
+          resolve();
+        }
+      }, speed);
+    });
+  };
 
   const loadSavedTranslation = async () => {
     if (!article) return;
@@ -125,12 +114,13 @@ export function ArticleView({ article }: ArticleViewProps) {
         articleId: article.id,
       });
       if (saved) {
-        // Parse saved translation (format: title\n---\ncontent)
-        const parts = saved.split("\n---\n");
-        if (parts.length >= 2) {
-          setTranslatedTitle(parts[0]);
-          setTranslatedContent(parts.slice(1).join("\n---\n"));
+        // Parse saved translation
+        const separatorIndex = saved.indexOf(SEPARATOR);
+        if (separatorIndex >= 0) {
+          setTranslatedTitle(saved.slice(0, separatorIndex));
+          setTranslatedContent(saved.slice(separatorIndex + SEPARATOR.length));
         } else {
+          // Legacy format - no separator, treat as content only
           setTranslatedContent(saved);
         }
         setHasTranslation(true);
@@ -176,22 +166,19 @@ export function ArticleView({ article }: ArticleViewProps) {
     }
   };
 
-  const handleTranslate = async () => {
-    if (!article || isTranslating) return;
+  const performTranslation = async () => {
+    if (!article || isTranslating) return false;
 
     const content = article.content || article.summary || "";
     const title = article.title || "";
 
     if (!content.trim() && !title.trim()) {
       addErrorToast("No content to translate");
-      return;
+      return false;
     }
 
-    // Immediately switch to translated view
-    setViewMode("translated");
     setIsTranslating(true);
-    setTranslatedTitle("");
-    setTranslatedContent("");
+    isCancelledRef.current = false;
 
     try {
       // Translate title and content in parallel
@@ -210,23 +197,54 @@ export function ArticleView({ article }: ArticleViewProps) {
           : Promise.resolve(""),
       ]);
 
+      if (isCancelledRef.current) return false;
+
       setTranslatedTitle(titleResult);
       setTranslatedContent(contentResult);
       setHasTranslation(true);
 
       // Save translation
-      const combined = `${titleResult}\n---\n${contentResult}`;
+      const combined = titleResult + SEPARATOR + contentResult;
       await invoke("save_translation", {
         articleId: article.id,
         content: combined,
       });
+
+      // Start streaming display
+      if (titleResult) {
+        await streamText(titleResult, setDisplayedTitle, 20);
+      }
+      if (contentResult && !isCancelledRef.current) {
+        await streamText(contentResult, setDisplayedContent, 8);
+      }
+
+      return true;
     } catch (e) {
       console.error("Translation failed:", e);
       const errorMsg = e instanceof Error ? e.message : String(e);
       addErrorToast(`Translation failed: ${errorMsg}`);
-      setViewMode("original");
+      return false;
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  // Handle view mode change
+  const handleViewModeChange = async (mode: ViewMode) => {
+    if (mode === "translated" && !hasTranslation && !isTranslating) {
+      // Switch to translated view and start translation
+      setViewMode("translated");
+      const success = await performTranslation();
+      if (!success) {
+        setViewMode("original");
+      }
+    } else {
+      setViewMode(mode);
+      if (mode === "translated" && hasTranslation) {
+        // Show full translated content immediately
+        setDisplayedTitle(translatedTitle);
+        setDisplayedContent(translatedContent);
+      }
     }
   };
 
@@ -238,10 +256,6 @@ export function ArticleView({ article }: ArticleViewProps) {
     } catch (e) {
       addErrorToast("Failed to toggle star");
     }
-  };
-
-  const handleViewModeChange = (mode: ViewMode) => {
-    setViewMode(mode);
   };
 
   // Determine what to display
@@ -295,11 +309,13 @@ export function ArticleView({ article }: ArticleViewProps) {
       <div className="p-4 border-b border-border">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold mb-2 transition-all duration-300">
+            <h1 className="text-xl font-semibold mb-2 min-h-[1.75rem]">
               {displayTitle}
-              {viewMode === "translated" && isTranslating && !titleComplete && (
-                <span className="inline-block w-2 h-5 ml-1 bg-primary animate-pulse" />
-              )}
+              {viewMode === "translated" &&
+                isTranslating &&
+                displayedTitle.length < translatedTitle.length && (
+                  <span className="inline-block w-0.5 h-5 ml-0.5 bg-primary animate-pulse align-middle" />
+                )}
             </h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
@@ -338,12 +354,13 @@ export function ArticleView({ article }: ArticleViewProps) {
             Open Original
           </button>
 
-          {/* View mode toggle - only show when has translation or translating */}
+          {/* View mode toggle - always show when has translation or is translating */}
           {(hasTranslation || isTranslating) && (
             <div className="flex rounded-md overflow-hidden border border-border">
               <button
                 onClick={() => handleViewModeChange("original")}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors ${
+                disabled={isTranslating}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors disabled:opacity-50 ${
                   viewMode === "original"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted hover:bg-muted/80"
@@ -354,7 +371,8 @@ export function ArticleView({ article }: ArticleViewProps) {
               </button>
               <button
                 onClick={() => handleViewModeChange("translated")}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors border-l border-border ${
+                disabled={isTranslating}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors border-l border-border disabled:opacity-50 ${
                   viewMode === "translated"
                     ? "bg-green-600 text-white"
                     : "bg-muted hover:bg-muted/80"
@@ -366,26 +384,26 @@ export function ArticleView({ article }: ArticleViewProps) {
             </div>
           )}
 
-          {/* Translate / Re-translate button */}
-          <button
-            onClick={handleTranslate}
-            disabled={isTranslating}
-            className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
-            title={hasTranslation ? "Re-translate" : "Translate"}
-          >
-            {isTranslating ? (
-              <Icon icon="mdi:loading" className="animate-spin" />
-            ) : hasTranslation ? (
-              <Icon icon="mdi:refresh" />
-            ) : (
-              <Icon icon="mdi:translate" />
-            )}
-            {isTranslating
-              ? "Translating..."
-              : hasTranslation
-                ? "Re-translate"
-                : "Translate"}
-          </button>
+          {/* Translate / Re-translate button - show if not translating */}
+          {!isTranslating && (
+            <button
+              onClick={() => handleViewModeChange("translated")}
+              className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+              title={hasTranslation ? "Re-translate" : "Translate"}
+            >
+              {hasTranslation ? (
+                <>
+                  <Icon icon="mdi:refresh" />
+                  Re-translate
+                </>
+              ) : (
+                <>
+                  <Icon icon="mdi:translate" />
+                  Translate
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -394,18 +412,16 @@ export function ArticleView({ article }: ArticleViewProps) {
         {isTranslating && viewMode === "translated" && (
           <div className="mb-4 flex items-center gap-3 text-sm text-muted-foreground">
             <Icon icon="mdi:loading" className="animate-spin" />
-            <div className="flex-1">
-              <div className="flex justify-between mb-1">
-                <span>Translating...</span>
-                <span>{Math.round(progress * 100)}%</span>
-              </div>
-              <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all duration-100"
-                  style={{ width: `${progress * 100}%` }}
-                />
-              </div>
-            </div>
+            <span>Translating...</span>
+            {displayedContent.length > 0 && translatedContent.length > 0 && (
+              <span className="text-xs">
+                (
+                {Math.round(
+                  (displayedContent.length / translatedContent.length) * 100,
+                )}
+                %)
+              </span>
+            )}
           </div>
         )}
 
