@@ -8,7 +8,6 @@ import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { Icon } from "@iconify-icon/react";
 
 function App() {
   const { theme, setTheme, updateSettings } = useAppStore();
@@ -100,59 +99,15 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">
-      {/* Title bar */}
-      <header className="h-12 flex items-center justify-between px-4 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-2">
-          <Icon icon="mdi:rss-box" className="text-xl text-primary" />
-          <span className="font-semibold">RSS Reader</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowOPML(true)}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
-            title="Import/Export OPML"
-          >
-            <Icon icon="mdi:database-import" className="text-lg" />
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
-            title="Refresh (R)"
-          >
-            {isRefreshing ? (
-              <Icon icon="mdi:loading" className="text-lg animate-spin" />
-            ) : (
-              <Icon icon="mdi:refresh" className="text-lg" />
-            )}
-          </button>
-
-          <button
-            onClick={handleToggleTheme}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
-            title="Toggle Theme (M)"
-          >
-            {theme === "dark" ? (
-              <Icon icon="mdi:white-balance-sunny" className="text-lg" />
-            ) : (
-              <Icon icon="mdi:moon-waning-crescent" className="text-lg" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-1.5 rounded hover:bg-muted transition-colors"
-            title="Settings"
-          >
-            <Icon icon="mdi:cog" className="text-lg" />
-          </button>
-        </div>
-      </header>
-
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar />
+        <Sidebar 
+          onShowOPML={() => setShowOPML(true)}
+          onShowSettings={() => setShowSettings(true)}
+          onRefresh={handleRefresh}
+          onToggleTheme={handleToggleTheme}
+          isRefreshing={isRefreshing}
+        />
         <ArticleList
           onSelectArticle={setSelectedArticle}
           selectedArticleId={selectedArticle?.id || null}

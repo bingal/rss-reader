@@ -23,8 +23,16 @@ interface ContextMenuState {
   feedTitle: string;
 }
 
-export function Sidebar() {
-  const { feeds, setFeeds, selectedFeedId, setSelectedFeedId } = useAppStore();
+interface SidebarProps {
+  onShowOPML: () => void;
+  onShowSettings: () => void;
+  onRefresh: () => void;
+  onToggleTheme: () => void;
+  isRefreshing: boolean;
+}
+
+export function Sidebar({ onShowOPML, onShowSettings, onRefresh, onToggleTheme, isRefreshing }: SidebarProps) {
+  const { feeds, setFeeds, selectedFeedId, setSelectedFeedId, theme } = useAppStore();
   const [newFeedUrl, setNewFeedUrl] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [editingFeed, setEditingFeed] = useState<{
@@ -129,6 +137,7 @@ export function Sidebar() {
   const handleAddFeed = () => {
     if (newFeedUrl.trim()) {
       addFeedMutation.mutate(newFeedUrl.trim());
+      setNewFeedUrl("");
     }
   };
 
@@ -247,43 +256,101 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Add feed */}
+      {/* Bottom action buttons */}
       <div className="p-2 border-t border-border">
-        {isAdding ? (
-          <div className="p-2 space-y-2">
+        <div className="flex items-center justify-around gap-1">
+          <button
+            onClick={() => setIsAdding(true)}
+            className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center"
+            title="Add Feed"
+          >
+            <Icon icon="mdi:plus" className="text-xl" />
+          </button>
+          
+          <button
+            onClick={onShowOPML}
+            className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center"
+            title="Import/Export OPML"
+          >
+            <Icon icon="mdi:database-import" className="text-xl" />
+          </button>
+          
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center disabled:opacity-50"
+            title="Refresh (R)"
+          >
+            {isRefreshing ? (
+              <Icon icon="mdi:loading" className="text-xl animate-spin" />
+            ) : (
+              <Icon icon="mdi:refresh" className="text-xl" />
+            )}
+          </button>
+
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center"
+            title="Toggle Theme (M)"
+          >
+            {theme === "dark" ? (
+              <Icon icon="mdi:white-balance-sunny" className="text-xl" />
+            ) : (
+              <Icon icon="mdi:moon-waning-crescent" className="text-xl" />
+            )}
+          </button>
+
+          <button
+            onClick={onShowSettings}
+            className="p-2 rounded hover:bg-muted transition-colors flex-1 flex items-center justify-center"
+            title="Settings"
+          >
+            <Icon icon="mdi:cog" className="text-xl" />
+          </button>
+        </div>
+      </div>
+
+      {/* Add feed input */}
+      {isAdding && (
+        <div className="absolute inset-x-0 bottom-0 bg-background border-t-2 border-primary p-3 shadow-lg">
+          <div className="space-y-2">
             <input
               type="url"
               placeholder="RSS Feed URL"
               value={newFeedUrl}
               onChange={(e) => setNewFeedUrl(e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-input rounded bg-background"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newFeedUrl.trim()) {
+                  handleAddFeed();
+                } else if (e.key === "Escape") {
+                  setIsAdding(false);
+                  setNewFeedUrl("");
+                }
+              }}
+              className="w-full px-3 py-2 text-sm border border-input rounded bg-background"
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 onClick={handleAddFeed}
                 disabled={!newFeedUrl.trim()}
-                className="flex-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                className="flex-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
               >
                 Add
               </button>
               <button
-                onClick={() => setIsAdding(false)}
-                className="px-2 py-1 text-xs bg-muted rounded hover:bg-muted/80"
+                onClick={() => {
+                  setIsAdding(false);
+                  setNewFeedUrl("");
+                }}
+                className="px-3 py-2 text-sm bg-muted rounded hover:bg-muted/80"
               >
                 Cancel
               </button>
             </div>
           </div>
-        ) : (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors flex items-center gap-2"
-          >
-            <Icon icon="mdi:plus" className="text-base" /> Add Feed
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Context Menu */}
       {contextMenu.show && (

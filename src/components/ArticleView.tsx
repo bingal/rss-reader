@@ -298,7 +298,7 @@ export function ArticleView({ article }: ArticleViewProps) {
     try {
       await invoke("toggle_starred", { id: article.id, starred: newStarred });
       article.isStarred = newStarred ? 1 : 0;
-    } catch (e) {
+    } catch {
       addErrorToast("Failed to toggle star");
     }
   };

@@ -114,33 +114,38 @@ fn set_app_setting(key: String, value: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn translate_text(text: String, target_lang: String) -> Result<String, String> {
-    // Read settings from database
-    let base_url = get_setting("translation_base_url".to_string())?
-        .unwrap_or_else(|| "https://libretranslate.com".to_string());
+async fn translate_text(text: String, target_lang: String) -> Result<String, String> {
+    // Read settings from database (blocking operations need spawn_blocking)
+    let settings_result = tokio::task::spawn_blocking(move || {
+        let base_url = get_setting("translation_base_url".to_string())?
+            .unwrap_or_else(|| "https://libretranslate.com".to_string());
+        
+        let api_key = get_setting("translation_api_key".to_string())?
+            .unwrap_or_default();
+        
+        let model = get_setting("translation_model".to_string())?
+            .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+        
+        let prompt = get_setting("translation_prompt".to_string())?
+            .unwrap_or_else(|| "Translate the following text to Chinese:".to_string());
+        
+        Ok::<_, String>((base_url, api_key, model, prompt))
+    }).await.map_err(|e| format!("Task join error: {}", e))??;
     
-    let api_key = get_setting("translation_api_key".to_string())?
-        .unwrap_or_default();
-    
-    let model = get_setting("translation_model".to_string())?
-        .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
-    
-    let prompt = get_setting("translation_prompt".to_string())?
-        .unwrap_or_else(|| "Translate the following text to Chinese:".to_string());
+    let (base_url, api_key, model, prompt) = settings_result;
     
     // Debug logging
     eprintln!("[translate] base_url: {}, model: {}, has_api_key: {}", 
               base_url, model, !api_key.is_empty());
     
     // Determine if this is OpenAI API or LibreTranslate
-    // Check for explicit OpenAI URL patterns or API key presence with non-default URL
     let is_openai = base_url.contains("openai.com") 
         || base_url.contains("openai")
         || base_url.contains("api.openai") 
-        || base_url.ends_with("/v1")  // Common OpenAI-compatible API pattern
+        || base_url.ends_with("/v1")
         || (!api_key.is_empty() && !base_url.contains("libretranslate"));
     
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     
     if is_openai {
         // OpenAI API format
@@ -177,15 +182,17 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
         
         let response = request
             .send()
+            .await
             .map_err(|e| format!("OpenAI request failed: {}. URL: {}", e, api_url))?;
         
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().unwrap_or_default();
+            let error_text = response.text().await.unwrap_or_default();
             return Err(format!("OpenAI API error ({}): {}", status, error_text));
         }
         
         let json: serde_json::Value = response.json()
+            .await
             .map_err(|e| format!("Parse OpenAI response failed: {}", e))?;
         
         let translated = json["choices"]
@@ -216,15 +223,17 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
             .post(&translate_url)
             .json(&body)
             .send()
+            .await
             .map_err(|e| format!("Translation request failed: {}", e))?;
         
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().unwrap_or_default();
+            let error_text = response.text().await.unwrap_or_default();
             return Err(format!("Translation service error ({}): {}", status, error_text));
         }
         
         let json: serde_json::Value = response.json()
+            .await
             .map_err(|e| format!("Parse response failed: {}", e))?;
         
         let translated = json["translatedText"]

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify-icon/react";
@@ -17,6 +17,7 @@ export function ArticleList({
   const { selectedFeedId, filter, setFilter, markArticleAsRead } =
     useAppStore();
   const [limit] = useState(50);
+  const queryClient = useQueryClient();
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", selectedFeedId, filter, limit],
@@ -41,8 +42,16 @@ export function ArticleList({
 
   const handleSelect = (article: Article) => {
     if (!article.isRead) {
+      // Optimistically update local state
       markArticleAsRead(article.id);
-      invoke("mark_read", { id: article.id, read: true }).catch(console.error);
+      
+      // Update backend and refresh article list
+      invoke("mark_read", { id: article.id, read: true })
+        .then(() => {
+          // Invalidate articles cache to refresh read status
+          queryClient.invalidateQueries({ queryKey: ["articles"] });
+        })
+        .catch(console.error);
     }
     onSelectArticle(article);
   };
