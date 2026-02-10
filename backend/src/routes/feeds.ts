@@ -1,22 +1,55 @@
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
-import { getDatabase } from "@/db/connection";
+import { getDatabase, resetDatabase, getDatabaseStatus } from "@/db/connection";
 import { fetchFeed } from "@/services/rss";
 import type { Feed } from "@/types";
 
 const app = new Hono();
 
+// GET /api/feeds/status - Check database status and try to reinitialize if needed
+app.get("/status", (c) => {
+  const status = getDatabaseStatus();
+
+  // If not initialized, try to reset and initialize
+  if (!status.initialized) {
+    try {
+      resetDatabase();
+      getDatabase();
+      return c.json({
+        initialized: true,
+        error: null,
+        message: "Database reinitialized successfully",
+      });
+    } catch (error: any) {
+      return c.json(
+        {
+          initialized: false,
+          error: error.message,
+          message: "Failed to reinitialize database",
+        },
+        500,
+      );
+    }
+  }
+
+  return c.json(status);
+});
+
 // GET /api/feeds - Get all feeds
 app.get("/", (c) => {
-  const db = getDatabase();
-  const query = db.query(`
-    SELECT id, title, url, description, image_url as imageUrl, category, created_at as createdAt, updated_at as updatedAt
-    FROM feeds
-    ORDER BY title
-  `);
-  const feeds = query.all() as Feed[];
-
-  return c.json(feeds);
+  try {
+    const db = getDatabase();
+    const query = db.query(`
+      SELECT id, title, url, description, image_url as imageUrl, category, created_at as createdAt, updated_at as updatedAt
+      FROM feeds
+      ORDER BY title
+    `);
+    const feeds = query.all() as Feed[];
+    return c.json(feeds);
+  } catch (error: any) {
+    console.error("[Feeds] Failed to get feeds:", error.message);
+    return c.json({ error: error.message || "Failed to get feeds" }, 500);
+  }
 });
 
 // POST /api/feeds - Add new feed
@@ -62,7 +95,7 @@ app.delete("/:id", (c) => {
     // Delete feed
     const result = db.query("DELETE FROM feeds WHERE id = ?").run(id);
 
-    if (result === 0) {
+    if (result.changes === 0) {
       return c.json({ error: "Feed not found" }, 404);
     }
 

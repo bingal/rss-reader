@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { dbRetryMiddleware } from "@/middleware/dbRetry";
 import feedsRouter from "./routes/feeds";
 import articlesRouter from "./routes/articles";
 import settingsRouter from "./routes/settings";
@@ -11,6 +12,9 @@ const app = new Hono();
 // Middleware
 app.use("*", logger());
 app.use("*", cors());
+
+// Database retry middleware - handles permission/reinitialization issues
+app.use("*", dbRetryMiddleware);
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));

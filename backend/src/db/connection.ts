@@ -4,6 +4,7 @@ import { homedir } from "os";
 import { mkdirSync, existsSync } from "fs";
 
 let db: Database | null = null;
+let initError: Error | null = null;
 
 function getDbPath(): string {
   const dataDir = join(
@@ -21,13 +22,46 @@ function getDbPath(): string {
 }
 
 export function getDatabase(): Database {
+  // If there was a previous error, try to reinitialize
+  if (db && initError) {
+    console.log(
+      "[DB] Previous init error detected, attempting to reinitialize...",
+    );
+    closeDatabase();
+  }
+
   if (!db) {
-    const dbPath = getDbPath();
-    db = new Database(dbPath, { create: true });
-    db.exec("PRAGMA journal_mode = WAL");
-    initializeSchema(db);
+    try {
+      const dbPath = getDbPath();
+      console.log("[DB] Initializing database at:", dbPath);
+      db = new Database(dbPath, { create: true });
+      db.exec("PRAGMA journal_mode = WAL");
+      initializeSchema(db);
+      initError = null;
+      console.log("[DB] Database initialized successfully");
+    } catch (error: any) {
+      initError = error;
+      console.error("[DB] Failed to initialize database:", error.message);
+      throw error;
+    }
   }
   return db;
+}
+
+export function resetDatabase(): void {
+  console.log("[DB] Resetting database connection...");
+  closeDatabase();
+  initError = null;
+}
+
+export function getDatabaseStatus(): {
+  initialized: boolean;
+  error: string | null;
+} {
+  return {
+    initialized: db !== null && initError === null,
+    error: initError?.message || null,
+  };
 }
 
 function initializeSchema(database: Database): void {
@@ -92,7 +126,12 @@ function initializeSchema(database: Database): void {
 
 export function closeDatabase(): void {
   if (db) {
-    db.close();
+    try {
+      db.close();
+      console.log("[DB] Database connection closed");
+    } catch (error) {
+      console.error("[DB] Error closing database:", error);
+    }
     db = null;
   }
 }

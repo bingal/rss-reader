@@ -123,8 +123,11 @@ export const api = {
       const response = await fetch(`${baseUrl}/api/feeds/refresh-all`, {
         method: "POST",
       });
-      if (!response.ok) throw new Error("Failed to refresh all feeds");
-      return response.json();
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to refresh all feeds");
+      }
+      return data;
     },
   },
 

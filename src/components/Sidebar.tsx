@@ -21,6 +21,7 @@ interface ContextMenuState {
   y: number;
   feedId: string | null;
   feedTitle: string;
+  isAllFeeds: boolean;
 }
 
 interface SidebarProps {
@@ -29,6 +30,7 @@ interface SidebarProps {
   onRefresh: () => void;
   onToggleTheme: () => void;
   isRefreshing: boolean;
+  onRefreshFeed?: (feedId: string) => Promise<{ count: number }>;
 }
 
 export function Sidebar({
@@ -37,6 +39,7 @@ export function Sidebar({
   onRefresh,
   onToggleTheme,
   isRefreshing,
+  onRefreshFeed,
 }: SidebarProps) {
   const { feeds, setFeeds, selectedFeedId, setSelectedFeedId, theme } =
     useAppStore();
@@ -52,6 +55,7 @@ export function Sidebar({
     y: 0,
     feedId: null,
     feedTitle: "",
+    isAllFeeds: false,
   });
   const [deleteConfirm, setDeleteConfirm] = useState<{
     show: boolean;
@@ -121,17 +125,17 @@ export function Sidebar({
 
   const refreshFeedMutation = useMutation({
     mutationFn: async (feedId: string) => {
-      const result = await api.feeds.refresh(feedId);
-      return result;
+      if (onRefreshFeed) {
+        return await onRefreshFeed(feedId);
+      } else {
+        const result = await api.feeds.refresh(feedId);
+        return result;
+      }
     },
-    onSuccess: (result) => {
-      console.log(`Refreshed feed, got ${result.count} new articles`);
-      queryClient.invalidateQueries({ queryKey: ["articles"] });
+    onSuccess: () => {
       setContextMenu((prev) => ({ ...prev, show: false }));
     },
-    onError: (error) => {
-      console.error("Failed to refresh feed:", error);
-      alert(`Failed to refresh feed: ${error}`);
+    onError: () => {
       setContextMenu((prev) => ({ ...prev, show: false }));
     },
   });
@@ -178,6 +182,20 @@ export function Sidebar({
       y: e.clientY,
       feedId,
       feedTitle,
+      isAllFeeds: false,
+    });
+  };
+
+  const handleAllFeedsContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      show: true,
+      x: e.clientX,
+      y: e.clientY,
+      feedId: null,
+      feedTitle: "All Articles",
+      isAllFeeds: true,
     });
   };
 
@@ -208,6 +226,11 @@ export function Sidebar({
     }
   };
 
+  const handleRefreshAllClick = () => {
+    setContextMenu((prev) => ({ ...prev, show: false }));
+    onRefresh();
+  };
+
   return (
     <div className="w-64 bg-muted/30 border-r border-border flex flex-col h-full">
       {/* Feed list */}
@@ -221,6 +244,7 @@ export function Sidebar({
             {/* All feeds */}
             <button
               onClick={() => setSelectedFeedId(null)}
+              onContextMenu={handleAllFeedsContextMenu}
               className={cn(
                 "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
                 selectedFeedId === null
@@ -417,33 +441,52 @@ export function Sidebar({
           className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[140px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button
-            onClick={handleRefreshFeedClick}
-            disabled={refreshFeedMutation.isPending}
-            className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2 disabled:opacity-50"
-          >
-            {refreshFeedMutation.isPending ? (
-              <Icon icon="mdi:loading" className="text-sm animate-spin" />
-            ) : (
-              <Icon icon="mdi:refresh" className="text-sm" />
-            )}
-            {refreshFeedMutation.isPending ? "Refreshing..." : "Refresh"}
-          </button>
-          <div className="h-px bg-border mx-2 my-1" />
-          <button
-            onClick={handleRenameClick}
-            className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2"
-          >
-            <Icon icon="mdi:pencil" className="text-sm" />
-            Rename
-          </button>
-          <button
-            onClick={handleDeleteClick}
-            className="w-full px-3 py-2 text-sm text-left hover:bg-muted text-destructive flex items-center gap-2"
-          >
-            <Icon icon="mdi:delete" className="text-sm" />
-            Delete
-          </button>
+          {contextMenu.isAllFeeds ? (
+            // All Articles context menu
+            <button
+              onClick={handleRefreshAllClick}
+              disabled={isRefreshing}
+              className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2 disabled:opacity-50"
+            >
+              {isRefreshing ? (
+                <Icon icon="mdi:loading" className="text-sm animate-spin" />
+              ) : (
+                <Icon icon="mdi:refresh" className="text-sm" />
+              )}
+              {isRefreshing ? "Refreshing..." : "Refresh All"}
+            </button>
+          ) : (
+            // Individual feed context menu
+            <>
+              <button
+                onClick={handleRefreshFeedClick}
+                disabled={refreshFeedMutation.isPending}
+                className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2 disabled:opacity-50"
+              >
+                {refreshFeedMutation.isPending ? (
+                  <Icon icon="mdi:loading" className="text-sm animate-spin" />
+                ) : (
+                  <Icon icon="mdi:refresh" className="text-sm" />
+                )}
+                {refreshFeedMutation.isPending ? "Refreshing..." : "Refresh"}
+              </button>
+              <div className="h-px bg-border mx-2 my-1" />
+              <button
+                onClick={handleRenameClick}
+                className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2"
+              >
+                <Icon icon="mdi:pencil" className="text-sm" />
+                Rename
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                className="w-full px-3 py-2 text-sm text-left hover:bg-muted text-destructive flex items-center gap-2"
+              >
+                <Icon icon="mdi:delete" className="text-sm" />
+                Delete
+              </button>
+            </>
+          )}
         </div>
       )}
 

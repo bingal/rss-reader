@@ -45,6 +45,17 @@ export function ArticleList({
       // Optimistically update local state
       markArticleAsRead(article.id);
 
+      // Optimistically update React Query cache
+      queryClient.setQueryData<Article[]>(
+        ["articles", selectedFeedId, filter, limit],
+        (old) => {
+          if (!old) return old;
+          return old.map((a) =>
+            a.id === article.id ? { ...a, isRead: 1 } : a,
+          );
+        },
+      );
+
       // Update backend and refresh article list
       api.articles
         .markRead(article.id, true)

@@ -5,10 +5,18 @@ import { ArticleView } from "./components/ArticleView";
 import { OPMLImport } from "./components/OPMLImport";
 import { Settings } from "./components/Settings";
 import { KeyboardShortcutsHelp } from "./components/KeyboardShortcutsHelp";
+import { Toast } from "./components/Toast";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+
+interface ToastState {
+  show: boolean;
+  message: string;
+  subMessage: string;
+  type: "success" | "info" | "error";
+}
 
 function App() {
   const { theme, setTheme, updateSettings, selectedFeedId, filter } =
@@ -18,6 +26,12 @@ function App() {
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [toast, setToast] = useState<ToastState>({
+    show: false,
+    message: "",
+    subMessage: "",
+    type: "info",
+  });
   const queryClient = useQueryClient();
 
   // Load settings from backend on startup
@@ -66,6 +80,21 @@ function App() {
   });
   const articles = articlesData || [];
 
+  // Fetch total article count (without filter)
+  const { data: totalCountData } = useQuery({
+    queryKey: ["articles", "total-count"],
+    queryFn: async () => {
+      // Get total count by fetching with a large limit
+      const allArticles = await api.articles.fetch({
+        limit: 999999,
+        offset: 0,
+      });
+      return allArticles.length;
+    },
+    staleTime: 30000, // 30 seconds
+  });
+  const totalCount = totalCountData || 0;
+
   // Apply theme
   document.documentElement.classList.remove("light", "dark");
   if (theme === "system") {
@@ -78,6 +107,18 @@ function App() {
     document.documentElement.classList.add(theme);
   }
 
+  const showToast = (
+    message: string,
+    subMessage: string,
+    type: "success" | "info" | "error" = "info",
+  ) => {
+    setToast({ show: true, message, subMessage, type });
+  };
+
+  const hideToast = () => {
+    setToast((prev) => ({ ...prev, show: false }));
+  };
+
   const handleRefresh = async () => {
     if (isRefreshing) return; // Prevent double clicks
     setIsRefreshing(true);
@@ -86,10 +127,39 @@ function App() {
       console.log(`Refreshed ${result.count} articles`);
       // Invalidate and refetch articles
       await queryClient.invalidateQueries({ queryKey: ["articles"] });
+
+      // Show toast notification
+      const newCount = result.count;
+      const hasErrors = result.errors && result.errors.length > 0;
+
+      if (hasErrors) {
+        // Partial success - some feeds failed
+        const errorCount = result.errors!.length;
+        if (newCount > 0) {
+          showToast(
+            `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
+            `${errorCount} feed${errorCount > 1 ? "s" : ""} failed to refresh`,
+            "info",
+          );
+        } else {
+          showToast(
+            "No new articles",
+            `${errorCount} feed${errorCount > 1 ? "s" : ""} failed to refresh`,
+            "info",
+          );
+        }
+      } else if (newCount > 0) {
+        showToast(
+          `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
+          `Total ${totalCount + newCount} articles`,
+          "success",
+        );
+      } else {
+        showToast("No new articles", `Total ${totalCount} articles`, "info");
+      }
     } catch (e) {
       console.error("Refresh failed:", e);
-      // Show error to user
-      alert(`Refresh failed: ${e}`);
+      showToast("Refresh failed", String(e), "error");
     } finally {
       setIsRefreshing(false);
     }
@@ -114,6 +184,29 @@ function App() {
     }
   };
 
+  const handleRefreshFeed = async (feedId: string) => {
+    try {
+      const result = await api.feeds.refresh(feedId);
+      await queryClient.invalidateQueries({ queryKey: ["articles"] });
+
+      const newCount = result.count;
+      if (newCount > 0) {
+        showToast(
+          `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
+          `Total ${totalCount + newCount} articles`,
+          "success",
+        );
+      } else {
+        showToast("No new articles", `Total ${totalCount} articles`, "info");
+      }
+      return result;
+    } catch (e) {
+      console.error("Failed to refresh feed:", e);
+      showToast("Failed to refresh feed", String(e), "error");
+      throw e;
+    }
+  };
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     articles,
@@ -135,6 +228,7 @@ function App() {
           onRefresh={handleRefresh}
           onToggleTheme={handleToggleTheme}
           isRefreshing={isRefreshing}
+          onRefreshFeed={handleRefreshFeed}
         />
         <ArticleList
           onSelectArticle={setSelectedArticle}
@@ -167,6 +261,16 @@ function App() {
       <KeyboardShortcutsHelp
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
+      />
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        subMessage={toast.subMessage}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={hideToast}
+        duration={3000}
       />
     </div>
   );
