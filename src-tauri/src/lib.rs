@@ -9,7 +9,6 @@ use db::{
     Feed, Article,
 };
 use rss::fetch_and_save_feed;
-use tauri_plugin_shell::ShellExt;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -224,9 +223,8 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn open_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    app.shell()
-        .open(&url, None)
+async fn open_link(url: String) -> Result<(), String> {
+    tauri_plugin_opener::open_url(&url, None::<&str>)
         .map_err(|e| format!("Failed to open URL: {}", e))?;
     Ok(())
 }
@@ -239,7 +237,7 @@ pub fn run() {
     }
     
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_version,

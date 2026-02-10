@@ -38,6 +38,11 @@ export function ArticleView({ article }: ArticleViewProps) {
   // Load saved translation when article changes
   useEffect(() => {
     if (article) {
+      // Always reset to original view when changing articles
+      setViewMode("original");
+      setTranslatedContent("");
+      setDisplayedContent("");
+      setTranslating(false);
       loadSavedTranslation();
     } else {
       setTranslatedContent("");
@@ -214,6 +219,22 @@ export function ArticleView({ article }: ArticleViewProps) {
         return article?.content || article?.summary || "";
     }
   };
+
+  // Debug article content
+  useEffect(() => {
+    if (article) {
+      console.log("[ArticleView] Article loaded:", {
+        id: article.id,
+        title: article.title,
+        hasContent: !!article.content,
+        contentLength: article.content?.length,
+        hasSummary: !!article.summary,
+        summaryLength: article.summary?.length,
+        pubDate: article.pubDate,
+        viewMode,
+      });
+    }
+  }, [article]);
 
   if (!article) {
     return (
@@ -445,10 +466,28 @@ export function ArticleView({ article }: ArticleViewProps) {
           </div>
         ) : (
           // Original view
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: mainContent }}
-          />
+          <div>
+            {!mainContent || mainContent.trim() === "" ? (
+              <div className="text-muted-foreground text-center py-8">
+                <Icon
+                  icon="mdi:file-outline"
+                  className="text-4xl mx-auto mb-2"
+                />
+                <p>No content available for this article.</p>
+                <button
+                  onClick={handleOpenOriginal}
+                  className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/80 transition-colors"
+                >
+                  Open Original Article
+                </button>
+              </div>
+            ) : (
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: mainContent }}
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

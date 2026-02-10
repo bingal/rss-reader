@@ -2,60 +2,8 @@ use feed_rs::parser;
 use feed_rs::model::{Feed as RSSFeed, Entry};
 use uuid::Uuid;
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, TimeZone};
 
 use crate::db::{Article, init_db};
-
-// Parse various date formats used in RSS feeds
-fn parse_date(date_str: &str) -> Option<i64> {
-    // Try RFC2822 format (common in RSS): Mon, 09 Feb 2026 08:00:00 GMT
-    if let Ok(dt) = DateTime::parse_from_rfc2822(date_str) {
-        return Some(dt.timestamp());
-    }
-    
-    // Try RFC3339/ISO8601 format: 2026-02-09T08:00:00Z
-    if let Ok(dt) = DateTime::parse_from_rfc3339(date_str) {
-        return Some(dt.timestamp());
-    }
-    
-    // Try common variants with timezone offset
-    // Format: 2026-02-09T08:00:00+00:00 or 2026-02-09 08:00:00
-    let clean = date_str.trim();
-    
-    // Replace space with T for standard format
-    let normalized = if clean.contains(' ') && !clean.contains('T') {
-        clean.replacen(" ", "T", 1)
-    } else {
-        clean.to_string()
-    };
-    
-    // Try parsing with various formats
-    for fmt in &[
-        "%Y-%m-%dT%H:%M:%S%.f%z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%S%.fZ",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-    ] {
-        if let Ok(dt) = DateTime::parse_from_str(&normalized, fmt) {
-            return Some(dt.timestamp());
-        }
-    }
-    
-    // Try parsing as UTC if no timezone
-    for fmt in &[
-        "%Y-%m-%dT%H:%M:%S%.f",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-    ] {
-        if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(&normalized, fmt) {
-            return Some(Utc.from_utc_datetime(&naive).timestamp());
-        }
-    }
-    
-    None
-}
 
 pub fn fetch_feed(url: String) -> Result<Vec<Article>, String> {
     let response = reqwest::blocking::get(&url)
@@ -162,16 +110,14 @@ fn convert_feed_to_articles(feed: &RSSFeed) -> Result<Vec<Article>, String> {
         let pub_date = entry.published
             .or(entry.updated)
             .map(|d| d.timestamp())
-            .or_else(|| {
-                // Try to parse from string fields if available
-                entry.published.map(|d| d.timestamp())
-            })
             .unwrap_or(now);
         
         // Debug date parsing
-        if pub_date == now {
-            eprintln!("[rss] Could not parse date for article: {}, using current time", title);
-        }
+        eprintln!("[rss] Article: {}, published: {:?}, updated: {:?}, final_ts: {}", 
+                  title.chars().take(50).collect::<String>(), 
+                  entry.published.map(|d| d.to_rfc3339()),
+                  entry.updated.map(|d| d.to_rfc3339()),
+                  if pub_date == now { "NOW".to_string() } else { pub_date.to_string() });
         
         let article = Article {
             id,
