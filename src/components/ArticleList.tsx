@@ -27,6 +27,14 @@ export function ArticleList({
         limit,
         offset: 0,
       });
+      // Debug: log first article date
+      if (result && result.length > 0) {
+        console.log("[ArticleList] First article:", {
+          title: result[0].title,
+          pubDate: result[0].pubDate,
+          pubDateType: typeof result[0].pubDate,
+        });
+      }
       return result;
     },
   });
