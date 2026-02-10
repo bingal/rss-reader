@@ -119,6 +119,23 @@ export function Sidebar({
     },
   });
 
+  const refreshFeedMutation = useMutation({
+    mutationFn: async (feedId: string) => {
+      const result = await api.feeds.refresh(feedId);
+      return result;
+    },
+    onSuccess: (result) => {
+      console.log(`Refreshed feed, got ${result.count} new articles`);
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      setContextMenu((prev) => ({ ...prev, show: false }));
+    },
+    onError: (error) => {
+      console.error("Failed to refresh feed:", error);
+      alert(`Failed to refresh feed: ${error}`);
+      setContextMenu((prev) => ({ ...prev, show: false }));
+    },
+  });
+
   const renameFeedMutation = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
       // Get current feed data
@@ -182,6 +199,12 @@ export function Sidebar({
         title: contextMenu.feedTitle,
       });
       setContextMenu((prev) => ({ ...prev, show: false }));
+    }
+  };
+
+  const handleRefreshFeedClick = () => {
+    if (contextMenu.feedId) {
+      refreshFeedMutation.mutate(contextMenu.feedId);
     }
   };
 
@@ -391,9 +414,22 @@ export function Sidebar({
       {contextMenu.show && (
         <div
           ref={contextMenuRef}
-          className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[120px]"
+          className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[140px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          <button
+            onClick={handleRefreshFeedClick}
+            disabled={refreshFeedMutation.isPending}
+            className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2 disabled:opacity-50"
+          >
+            {refreshFeedMutation.isPending ? (
+              <Icon icon="mdi:loading" className="text-sm animate-spin" />
+            ) : (
+              <Icon icon="mdi:refresh" className="text-sm" />
+            )}
+            {refreshFeedMutation.isPending ? "Refreshing..." : "Refresh"}
+          </button>
+          <div className="h-px bg-border mx-2 my-1" />
           <button
             onClick={handleRenameClick}
             className="w-full px-3 py-2 text-sm text-left hover:bg-muted flex items-center gap-2"

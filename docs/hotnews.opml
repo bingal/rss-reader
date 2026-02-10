@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>NewsNow RSS Feeds</title>
+  </head>
+  <body>
+    <outline text="36kr" type="rss" xmlUrl="https://36kr.com/feed"/>
+    <outline text="Cankaoxiaoxi" type="rss" xmlUrl="http://www.cankaoxiaoxi.com/rss/all.xml"/>
+    <outline text="Douban" type="rss" xmlUrl="https://www.douban.com/feed/"/>
+    <outline text="Fastbull" type="rss" xmlUrl="https://www.fastbull.cn/rss/news"/>
+    <outline text="Freebuf" type="rss" xmlUrl="https://www.freebuf.com/feed"/>
+    <outline text="Gelonghui" type="rss" xmlUrl="https://www.gelonghui.com/rss"/>
+    <outline text="iFeng" type="rss" xmlUrl="https://news.ifeng.com/rss/index.xml"/>
+    <outline text="ITHome" type="rss" xmlUrl="https://www.ithome.com/rss/"/>
+    <outline text="Jin10" type="rss" xmlUrl="https://www.jin10.com/rss.xml"/>
+    <outline text="Juejin" type="rss" xmlUrl="https://juejin.cn/rss"/>
+    <outline text="Linuxdo" type="rss" xmlUrl="https://linux.do/latest.rss"/>
+    <outline text="NowCoder" type="rss" xmlUrl="https://www.nowcoder.com/feed"/>
+    <outline text="PCBeta" type="rss" xmlUrl="https://bbs.pcbeta.com/forum.php?mod=rss"/>
+    <outline text="SMZDM" type="rss" xmlUrl="https://www.smzdm.com/feed"/>
+    <outline text="Solidot" type="rss" xmlUrl="https://www.solidot.org/index.rss"/>
+    <outline text="SputnikNewsCN" type="rss" xmlUrl="https://sputniknews.cn/export/rss2/"/>
+    <outline text="SSPAI" type="rss" xmlUrl="https://sspai.com/feed"/>
+    <outline text="Tencent" type="rss" xmlUrl="https://news.qq.com/newsgn/rss_newsgn.xml"/>
+    <outline text="ThePaper" type="rss" xmlUrl="https://www.thepaper.cn/rss_news.jsp"/>
+    <outline text="V2EX" type="rss" xmlUrl="https://www.v2ex.com/index.xml"/>
+    <outline text="WallStreetCN" type="rss" xmlUrl="https://wallstreetcn.com/rss"/>
+    <outline text="Xueqiu" type="rss" xmlUrl="https://xueqiu.com/service/rss"/>
+    <outline text="Zaobao" type="rss" xmlUrl="https://www.zaobao.com/rss"/>
+    <outline text="ProductHunt" type="rss" xmlUrl="https://www.producthunt.com/feed"/>
+    <outline text="Steam" type="rss" xmlUrl="https://store.steampowered.com/feeds/news.xml"/>
+    <outline text="HackerNews" type="rss" xmlUrl="https://news.ycombinator.com/rss"/>
+  </body>
+</opml>
