@@ -9,11 +9,15 @@ let isInitializing = false;
 
 /**
  * Get database directory path
- * Uses ~/.rss-reader/ to avoid macOS permission issues with Library/Application Support
+ * Uses ~/Library/Application Support/rss-reader/ on macOS
  */
 function getDbDir(): string {
-  // Use hidden folder in home directory to avoid permission issues
-  const dataDir = join(homedir(), ".rss-reader");
+  const dataDir = join(
+    homedir(),
+    "Library",
+    "Application Support",
+    "rss-reader",
+  );
 
   if (!existsSync(dataDir)) {
     try {
