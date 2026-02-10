@@ -98,6 +98,17 @@ pub fn init_db() -> Result<Connection> {
     conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_starred ON articles(is_starred)", [])?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(is_read)", [])?;
     
+    // Create translations table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS translations (
+            article_id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            created_at INTEGER DEFAULT (unixepoch()),
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+    
     Ok(conn)
 }
 
@@ -261,4 +272,26 @@ pub fn set_setting(key: String, value: String) -> Result<(), String> {
         [&key, &value],
     ).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn save_translation(article_id: String, content: String) -> Result<(), String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().timestamp();
+    conn.execute(
+        "INSERT OR REPLACE INTO translations (article_id, content, created_at) VALUES (?, ?, ?)",
+        [&article_id, &content, &now.to_string()],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_translation(article_id: String) -> Result<Option<String>, String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    let result: Option<String> = conn.query_row(
+        "SELECT content FROM translations WHERE article_id = ?",
+        [&article_id],
+        |row| row.get(0)
+    ).ok();
+    Ok(result)
 }

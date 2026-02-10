@@ -5,6 +5,7 @@ mod rss;
 use db::{
     init_db, get_feeds, add_feed, remove_feed, get_articles,
     mark_article_read, toggle_article_starred, get_setting, set_setting,
+    save_translation, get_translation,
     Feed, Article,
 };
 use rss::fetch_and_save_feed;
@@ -254,6 +255,8 @@ pub fn run() {
             set_app_setting,
             translate_text,
             open_link,
+            save_translation,
+            get_translation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
