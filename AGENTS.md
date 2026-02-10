@@ -123,6 +123,37 @@ npm run preview
 bun run preview           # Alternative with Bun
 ```
 
+## Pre-Commit Checklist
+
+**IMPORTANT**: Before committing changes, ALWAYS run these commands to ensure code quality:
+
+```bash
+# 1. Format code with Prettier
+bun run format
+# or
+npm run format
+
+# 2. Check formatting (should pass after step 1)
+bun run format:check
+
+# 3. Run linter
+bun run lint
+
+# 4. Type check
+bunx tsc --noEmit
+
+# 5. Run tests
+bun run test:run
+```
+
+**Quick validation** - Run all checks at once:
+
+```bash
+bun run format && bun run format:check && bun run lint && bunx tsc --noEmit && bun run test:run
+```
+
+If any of these fail, fix the issues before committing. The CI/CD pipeline will run the same checks and fail if they don't pass.
+
 ## Architecture Details
 
 ### Overview
@@ -171,6 +202,7 @@ await invoke<Feed>("add_new_feed", { title, url, description, category });
 Backend API endpoints (defined in `backend/src/routes/`):
 
 **Feeds** (`routes/feeds.ts`):
+
 - `GET /api/feeds` - List all subscribed feeds
 - `POST /api/feeds` - Subscribe to a new feed
 - `DELETE /api/feeds/:id` - Remove a feed and its articles
@@ -178,15 +210,18 @@ Backend API endpoints (defined in `backend/src/routes/`):
 - `POST /api/feeds/refresh-all` - Refresh all feeds
 
 **Articles** (`routes/articles.ts`):
+
 - `GET /api/articles` - Get articles with optional query params (feedId, filter, limit, offset)
 - `PATCH /api/articles/:id/read` - Mark article as read/unread
 - `PATCH /api/articles/:id/starred` - Toggle article star status
 
 **Settings** (`routes/settings.ts`):
+
 - `GET /api/settings/:key` - Get app setting
 - `PUT /api/settings/:key` - Set app setting
 
 **Translation** (`routes/translation.ts`):
+
 - `POST /api/translate` - Translate text to target language
 - `POST /api/translations/save` - Save translation for article
 - `GET /api/translations/:articleId` - Get saved translation
@@ -204,6 +239,7 @@ The backend is a **Bun server** using the **Hono** framework:
 - **Port**: Dynamic (port 0) to avoid conflicts
 
 **Database Schema** (in `backend/src/db/`):
+
 - **feeds**: RSS subscriptions (id, title, url, description, imageUrl, category, createdAt, updatedAt)
 - **articles**: Feed entries (id, feedId, title, link, content, summary, author, pubDate, isRead, isStarred, fetchedAt)
 - **settings**: Key-value store (key, value)
@@ -322,16 +358,16 @@ GitHub Actions workflow (`.github/workflows/build.yml`):
    - Unit tests (`bun run test:run`)
 
 2. **Build jobs** (parallel, needs: check):
-   - **macOS**: 
+   - **macOS**:
      - Compiles Bun backend for aarch64 and x86_64
      - Builds Tauri app for both architectures separately
      - Merges into universal binary using `lipo`
      - Produces `.dmg`
-   - **Windows**: 
+   - **Windows**:
      - Compiles Bun backend for x86_64
      - Builds Tauri app
      - Produces `.msi` and `.exe`
-   - **Linux**: 
+   - **Linux**:
      - Compiles Bun backend for x86_64
      - Builds Tauri app
      - Produces `.deb`, `.rpm`, `.AppImage`

@@ -120,6 +120,7 @@ This app uses a **Tauri + Bun sidecar** architecture:
 4. **SQLite Database** - Stores feeds, articles, settings
 
 Benefits:
+
 - Fast development with TypeScript for both frontend and backend
 - Bun's excellent performance and small binary size
 - Tauri provides native desktop experience
@@ -236,15 +237,16 @@ This project uses GitHub Actions with **Bun** for automated builds on macOS, Win
 **Build Matrix**:
 | Platform | Backend Target | Output |
 |----------|----------------|--------|
-| macOS    | arm64 + x64 → universal binary | `.dmg` |
-| Windows  | x64 | `.msi`, `.exe` |
-| Linux    | x64 | `.deb`, `.rpm`, `.AppImage` |
+| macOS | arm64 + x64 → universal binary | `.dmg` |
+| Windows | x64 | `.msi`, `.exe` |
+| Linux | x64 | `.deb`, `.rpm`, `.AppImage` |
 
 **Artifacts** are uploaded automatically and can be downloaded from the Actions tab.
 
 ### Setup for Automated Builds
 
 No additional secrets required! The workflow uses:
+
 - Bun for frontend and backend builds
 - GitHub's built-in `GITHUB_TOKEN` for releases
 
