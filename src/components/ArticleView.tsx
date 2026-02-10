@@ -269,9 +269,14 @@ export function ArticleView({ article }: ArticleViewProps) {
 
   const handleToggleStar = async () => {
     if (!article) return;
-    const newStarred = article.isStarred === 0;
+    // Check current state - isStarred is 0 or 1
+    const currentlyStarred = article.isStarred === 1;
+    const newStarred = !currentlyStarred;
+
     try {
       await invoke("toggle_starred", { id: article.id, starred: newStarred });
+      // Update local state optimistically
+      article.isStarred = newStarred ? 1 : 0;
     } catch (e) {
       addErrorToast("Failed to toggle star");
     }
@@ -460,8 +465,8 @@ export function ArticleView({ article }: ArticleViewProps) {
             </button>
           </div>
         ) : (
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none"
+          <article
+            className="prose prose-slate dark:prose-invert prose-img:rounded-lg prose-headings:font-semibold prose-a:text-primary hover:prose-a:text-primary/80 prose-blockquote:border-l-4 prose-blockquote:border-primary/30 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg max-w-none"
             dangerouslySetInnerHTML={{
               __html: displayContent.replace(/\n/g, "<br/>"),
             }}
