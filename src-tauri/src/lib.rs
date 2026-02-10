@@ -17,33 +17,36 @@ fn get_backend_port(state: tauri::State<AppState>) -> Result<u16, String> {
         .ok_or_else(|| "Backend port not available".to_string())
 }
 
-fn get_sidecar_path(app: &tauri::AppHandle) -> PathBuf {
-    // Determine the binary name based on target triple
-    let binary_name = if cfg!(target_os = "macos") {
-        if cfg!(target_arch = "aarch64") {
-            "backend-aarch64-apple-darwin"
-        } else {
-            "backend-x86_64-apple-darwin"
-        }
-    } else if cfg!(target_os = "windows") {
-        "backend-x86_64-pc-windows-msvc.exe"
-    } else if cfg!(target_os = "linux") {
-        "backend-x86_64-unknown-linux-gnu"
-    } else {
-        "backend"
-    };
-
-    // In dev mode, use the binary from the source tree
+fn get_sidecar_path(_app: &tauri::AppHandle) -> PathBuf {
+    // In dev mode, use the binary from the source tree with target triple
     if cfg!(dev) {
+        let binary_name = if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                "backend-aarch64-apple-darwin"
+            } else {
+                "backend-x86_64-apple-darwin"
+            }
+        } else if cfg!(target_os = "windows") {
+            "backend-x86_64-pc-windows-msvc.exe"
+        } else if cfg!(target_os = "linux") {
+            "backend-x86_64-unknown-linux-gnu"
+        } else {
+            "backend"
+        };
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         return PathBuf::from(manifest_dir)
             .join("binaries")
             .join(binary_name);
     }
     
-    // In production, the sidecar is placed in the same directory as the main binary
-    // (Contents/MacOS/ on macOS)
-    app.path().current_exe()
+    // In production, externalBin bundles the binary as just "backend"
+    // in the same directory as the main executable (Contents/MacOS/ on macOS)
+    let binary_name = if cfg!(target_os = "windows") {
+        "backend.exe"
+    } else {
+        "backend"
+    };
+    std::env::current_exe()
         .expect("failed to get current executable path")
         .parent()
         .expect("failed to get executable directory")

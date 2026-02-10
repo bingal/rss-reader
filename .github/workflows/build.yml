@@ -89,12 +89,15 @@ jobs:
           cd backend
           bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
 
+      - name: Build frontend
+        run: bun run build
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: bun run tauri
+          tauriScript: cargo tauri
           args: --target aarch64-apple-darwin
 
       - name: Upload artifacts
@@ -142,12 +145,15 @@ jobs:
           cd backend
           bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
 
+      - name: Build frontend
+        run: bun run build
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: bun run tauri
+          tauriScript: cargo tauri
           args: --target x86_64-apple-darwin
 
       - name: Upload artifacts
@@ -195,12 +201,15 @@ jobs:
           cd backend
           bun build src/index.ts --compile --target=bun-windows-x64 --outfile ../src-tauri/binaries/backend-x86_64-pc-windows-msvc.exe
 
+      - name: Build frontend
+        run: bun run build
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: bun run tauri
+          tauriScript: cargo tauri
           args: --target x86_64-pc-windows-msvc
 
       - name: Upload artifacts
@@ -266,7 +275,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: bun run tauri
+          tauriScript: cargo tauri
           args: --target x86_64-unknown-linux-gnu --bundles deb,rpm
 
       - name: Upload artifacts
