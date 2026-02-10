@@ -29,8 +29,9 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
-if ! command -v npm &> /dev/null; then
-    echo -e "${RED}Error: npm is not installed${NC}"
+if ! command -v bun &> /dev/null; then
+    echo -e "${RED}Error: Bun is not installed${NC}"
+    echo "Please install Bun: https://bun.sh/"
     exit 1
 fi
 
@@ -85,15 +86,21 @@ echo ""
 # Clean build if requested
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${YELLOW}Cleaning previous build...${NC}"
-    rm -rf src-tauri/target/release
+    rm -rf src-tauri/target
+    rm -rf dist
     echo "Done"
     echo ""
 fi
 
 # Install dependencies
-echo "Installing npm dependencies..."
-npm ci
-echo -e "${GREEN}Dependencies installed${NC}"
+echo "Installing frontend dependencies..."
+bun install
+echo -e "${GREEN}Frontend dependencies installed${NC}"
+echo ""
+
+echo "Installing backend dependencies..."
+cd backend && bun install && cd ..
+echo -e "${GREEN}Backend dependencies installed${NC}"
 echo ""
 
 # Add Rust targets
@@ -110,7 +117,7 @@ echo ""
 
 # Build frontend
 echo "Building frontend..."
-npm run build
+bun run build
 echo -e "${GREEN}Frontend build complete${NC}"
 echo ""
 
@@ -124,37 +131,81 @@ export MACOSX_DEPLOYMENT_TARGET="10.13"
 export TAURI_SIGNING_PRIVATE_KEY=""
 export TAURI_KEY_PASSWORD=""
 
-# Build with Tauri
-cd src-tauri
-
-# For universal build, we need to use cargo directly for the universal binary
+# Build backend binaries
 if [ "$TARGET" = "universal-apple-darwin" ]; then
-    echo "Building universal binary (this may take a while)..."
+    echo "Building backend for both architectures..."
+    cd backend
+    bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
+    bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
+    chmod +x ../src-tauri/binaries/backend-aarch64-apple-darwin
+    chmod +x ../src-tauri/binaries/backend-x86_64-apple-darwin
+    cd ..
+    echo -e "${GREEN}Backend binaries built${NC}"
+    echo ""
     
-    # Build for both architectures
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
+    # Build Tauri for both architectures
+    echo "Building Tauri for aarch64..."
+    bun run tauri build -- --target aarch64-apple-darwin
+    echo ""
+    
+    echo "Building Tauri for x86_64..."
+    bun run tauri build -- --target x86_64-apple-darwin
+    echo ""
     
     # Create universal binary
     echo "Creating universal binary..."
-    mkdir -p target/universal-apple-darwin/release
-    lipo -create \
-        target/aarch64-apple-darwin/release/rss-reader \
-        target/x86_64-apple-darwin/release/rss-reader \
-        -output target/universal-apple-darwin/release/rss-reader
+    mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/dmg
+    mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos
     
-    # Use Tauri bundler with the universal binary
-    echo "Bundling DMG..."
-    npm run tauri build -- --target universal-apple-darwin --bundles dmg
+    # Copy the aarch64 app bundle as base
+    cp -r src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app \
+          src-tauri/target/universal-apple-darwin/release/bundle/macos/
+    
+    # Merge main binary
+    lipo -create \
+      src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
+      src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
+      -output src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader
+    
+    echo -e "${GREEN}Universal binary created${NC}"
+    echo ""
+    
+    # Create DMG
+    if command -v create-dmg &> /dev/null; then
+        echo "Creating DMG..."
+        create-dmg \
+          --volname "RSS Reader" \
+          --window-pos 200 120 \
+          --window-size 800 400 \
+          --icon-size 100 \
+          --app-drop-link 600 185 \
+          "src-tauri/target/universal-apple-darwin/release/bundle/dmg/rss-reader_universal.dmg" \
+          "src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app" 2>/dev/null || true
+    fi
+elif [ "$TARGET" = "aarch64-apple-darwin" ]; then
+    echo "Building backend for Apple Silicon..."
+    cd backend
+    bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
+    chmod +x ../src-tauri/binaries/backend-aarch64-apple-darwin
+    cd ..
+    echo -e "${GREEN}Backend binary built${NC}"
+    echo ""
+    
+    bun run tauri build -- --target aarch64-apple-darwin
 else
-    # Single architecture build
-    npm run tauri build -- --target "$TARGET" --bundles dmg
+    echo "Building backend for Intel..."
+    cd backend
+    bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
+    chmod +x ../src-tauri/binaries/backend-x86_64-apple-darwin
+    cd ..
+    echo -e "${GREEN}Backend binary built${NC}"
+    echo ""
+    
+    bun run tauri build -- --target x86_64-apple-darwin
 fi
 
-cd ..
-
 # Check if DMG was created
-DMG_PATH="src-tauri/target/release/bundle/dmg"
+DMG_PATH="src-tauri/target/$TARGET/release/bundle/dmg"
 if [ "$TARGET" = "universal-apple-darwin" ]; then
     DMG_PATH="src-tauri/target/universal-apple-darwin/release/bundle/dmg"
 fi

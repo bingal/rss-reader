@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Simple build script for macOS DMG (unsigned)
-# Uses Tauri's built-in bundler
+# Uses Tauri's built-in bundler with Bun backend
 
 set -e
 
@@ -22,6 +22,13 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
     exit 1
 fi
 
+# Check Bun
+if ! command -v bun &> /dev/null; then
+    echo -e "${RED}Error: Bun is not installed${NC}"
+    echo "Please install Bun: https://bun.sh/"
+    exit 1
+fi
+
 # Get project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
@@ -31,9 +38,11 @@ ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
     TARGET="aarch64-apple-darwin"
     TARGET_NAME="Apple Silicon"
+    BUN_TARGET="bun-darwin-arm64"
 else
     TARGET="x86_64-apple-darwin"
     TARGET_NAME="Intel"
+    BUN_TARGET="bun-darwin-x64"
 fi
 
 # Parse args
@@ -42,11 +51,13 @@ for arg in "$@"; do
         --intel)
             TARGET="x86_64-apple-darwin"
             TARGET_NAME="Intel"
+            BUN_TARGET="bun-darwin-x64"
             shift
             ;;
-        --universal)
-            TARGET="universal-apple-darwin"
-            TARGET_NAME="Universal"
+        --arm64)
+            TARGET="aarch64-apple-darwin"
+            TARGET_NAME="Apple Silicon"
+            BUN_TARGET="bun-darwin-arm64"
             shift
             ;;
     esac
@@ -56,16 +67,30 @@ echo "Building for: $TARGET_NAME ($TARGET)"
 echo ""
 
 # Install deps
-echo "Installing dependencies..."
-npm ci
+echo "Installing frontend dependencies..."
+bun install
+echo ""
+
+echo "Installing backend dependencies..."
+cd backend && bun install && cd ..
+echo ""
 
 # Add Rust target
 echo "Adding Rust target: $TARGET"
 rustup target add "$TARGET" 2>/dev/null || true
 
-# Build
+# Build backend binary
 echo ""
-echo "Building app (unsigned)..."
+echo "Building backend binary..."
+cd backend
+bun build src/index.ts --compile --target="$BUN_TARGET" --outfile "../src-tauri/binaries/backend-$TARGET"
+chmod +x "../src-tauri/binaries/backend-$TARGET"
+cd ..
+echo -e "${GREEN}Backend binary built${NC}"
+echo ""
+
+# Build
+echo "Building Tauri app (unsigned)..."
 echo -e "${YELLOW}This may take a few minutes...${NC}"
 echo ""
 
@@ -75,18 +100,10 @@ export TAURI_KEY_PASSWORD=""
 export MACOSX_DEPLOYMENT_TARGET="10.13"
 
 # Build with Tauri
-if [ "$TARGET" = "universal-apple-darwin" ]; then
-    npm run tauri build -- --target universal-apple-darwin
-else
-    npm run tauri build -- --target "$TARGET"
-fi
+bun run tauri build -- --target "$TARGET"
 
 # Find DMG
-DMG_DIR="src-tauri/target/release/bundle/dmg"
-if [ "$TARGET" = "universal-apple-darwin" ]; then
-    DMG_DIR="src-tauri/target/universal-apple-darwin/release/bundle/dmg"
-fi
-
+DMG_DIR="src-tauri/target/$TARGET/release/bundle/dmg"
 DMG=$(find "$DMG_DIR" -name "*.dmg" 2>/dev/null | head -1)
 
 if [ -f "$DMG" ]; then
