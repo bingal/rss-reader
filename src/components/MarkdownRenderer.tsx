@@ -86,9 +86,7 @@ export function MarkdownRenderer({
     ),
 
     // Horizontal rule
-    hr: ({ ...props }) => (
-      <hr {...props} className="my-6 border-border" />
-    ),
+    hr: ({ ...props }) => <hr {...props} className="my-6 border-border" />,
 
     // Tables: add styling for GFM tables
     table: ({ ...props }) => (
