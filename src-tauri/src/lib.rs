@@ -18,11 +18,24 @@ fn get_backend_port(state: tauri::State<AppState>) -> Result<u16, String> {
 }
 
 fn get_sidecar_path(app: &tauri::AppHandle) -> PathBuf {
+    // Determine the binary name based on target triple
+    let binary_name = if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "backend-aarch64-apple-darwin"
+        } else {
+            "backend-x86_64-apple-darwin"
+        }
+    } else if cfg!(target_os = "windows") {
+        "backend-x86_64-pc-windows-msvc.exe"
+    } else if cfg!(target_os = "linux") {
+        "backend-x86_64-unknown-linux-gnu"
+    } else {
+        "backend"
+    };
+
     // In dev mode, use the binary from the source tree
     if cfg!(dev) {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let target_arch = std::env::consts::ARCH;
-        let binary_name = format!("backend-{}-apple-darwin", target_arch);
         return PathBuf::from(manifest_dir)
             .join("binaries")
             .join(binary_name);
@@ -32,7 +45,7 @@ fn get_sidecar_path(app: &tauri::AppHandle) -> PathBuf {
     app.path().resource_dir()
         .expect("failed to get resource directory")
         .join("binaries")
-        .join("backend")
+        .join(binary_name)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

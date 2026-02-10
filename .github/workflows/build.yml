@@ -75,7 +75,9 @@ jobs:
       - name: Build backend binaries
         run: |
           cd backend
-          bun run build
+          # Build for both architectures
+          bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
+          bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -128,7 +130,7 @@ jobs:
       - name: Build backend binary
         run: |
           cd backend
-          bun run build
+          bun build src/index.ts --compile --target=bun-windows-x64 --outfile ../src-tauri/binaries/backend-x86_64-pc-windows-msvc.exe
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -167,7 +169,7 @@ jobs:
       - name: Build backend binary
         run: |
           cd backend
-          bun run build
+          bun build src/index.ts --compile --target=bun-linux-x64 --outfile ../src-tauri/binaries/backend-x86_64-unknown-linux-gnu
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
