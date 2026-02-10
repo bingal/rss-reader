@@ -111,15 +111,25 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
     let prompt = get_setting("translation_prompt".to_string())?
         .unwrap_or_else(|| "Translate the following text to Chinese:".to_string());
     
+    // Debug logging
+    eprintln!("[translate] base_url: {}, has_api_key: {}, prompt: {}", 
+              base_url, !api_key.is_empty(), prompt);
+    
     // Determine if this is OpenAI API or LibreTranslate
-    let is_openai = base_url.contains("openai.com") || base_url.contains("openai") || 
-                    (!api_key.is_empty() && base_url != "https://libretranslate.com" && !base_url.contains("libretranslate"));
+    // Check for explicit OpenAI URL patterns or API key presence with non-default URL
+    let is_openai = base_url.contains("openai.com") 
+        || base_url.contains("openai")
+        || base_url.contains("api.openai") 
+        || base_url.ends_with("/v1")  // Common OpenAI-compatible API pattern
+        || (!api_key.is_empty() && !base_url.contains("libretranslate"));
     
     let client = reqwest::blocking::Client::new();
     
     if is_openai {
         // OpenAI API format
         let api_url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+        
+        eprintln!("[translate] Using OpenAI API: {}", api_url);
         
         let request_body = serde_json::json!({
             "model": "gpt-3.5-turbo",
@@ -143,11 +153,14 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
         // Add Authorization header
         if !api_key.is_empty() {
             request = request.header("Authorization", format!("Bearer {}", api_key));
+            eprintln!("[translate] Added Authorization header");
+        } else {
+            eprintln!("[translate] Warning: No API key provided");
         }
         
         let response = request
             .send()
-            .map_err(|e| format!("OpenAI request failed: {}", e))?;
+            .map_err(|e| format!("OpenAI request failed: {}. URL: {}", e, api_url))?;
         
         if !response.status().is_success() {
             let status = response.status();
@@ -168,6 +181,8 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
     } else {
         // LibreTranslate API format
         let translate_url = format!("{}/translate", base_url.trim_end_matches('/'));
+        
+        eprintln!("[translate] Using LibreTranslate API: {}", translate_url);
         
         let mut body = serde_json::json!({
             "q": text,
