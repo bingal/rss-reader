@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { Icon } from "@iconify-icon/react";
@@ -10,49 +10,111 @@ interface ArticleViewProps {
 interface Toast {
   id: number;
   message: string;
-  type: "success" | "error" | "info";
+  type: "error";
 }
 
-type ViewMode = "original" | "translated" | "split";
+type ViewMode = "original" | "translated";
+
+// Streaming text hook
+function useStreamingText(
+  fullText: string,
+  isActive: boolean,
+  speed: number = 15,
+) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [isComplete, setIsComplete] = useState(false);
+  const indexRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const lastTimeRef = useRef(0);
+
+  useEffect(() => {
+    if (!isActive || !fullText) {
+      setDisplayedText(fullText || "");
+      setIsComplete(true);
+      return;
+    }
+
+    indexRef.current = 0;
+    setDisplayedText("");
+    setIsComplete(false);
+    lastTimeRef.current = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - lastTimeRef.current;
+
+      if (elapsed >= speed) {
+        const charsToAdd = Math.max(1, Math.floor(elapsed / speed));
+        const newIndex = Math.min(
+          indexRef.current + charsToAdd,
+          fullText.length,
+        );
+
+        if (newIndex > indexRef.current) {
+          setDisplayedText(fullText.slice(0, newIndex));
+          indexRef.current = newIndex;
+        }
+
+        lastTimeRef.current = currentTime;
+      }
+
+      if (indexRef.current < fullText.length) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        setIsComplete(true);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [fullText, isActive, speed]);
+
+  return {
+    displayedText,
+    isComplete,
+    progress: fullText ? indexRef.current / fullText.length : 0,
+  };
+}
 
 export function ArticleView({ article }: ArticleViewProps) {
   const { feeds } = useAppStore();
-  const [translating, setTranslating] = useState(false);
-  const [translatedContent, setTranslatedContent] = useState<string>("");
-  const [displayedContent, setDisplayedContent] = useState<string>("");
   const [viewMode, setViewMode] = useState<ViewMode>("original");
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [hasTranslation, setHasTranslation] = useState(false);
-  const streamRef = useRef<NodeJS.Timeout | null>(null);
-  const fullTranslationRef = useRef<string>("");
+  const [isTranslating, setIsTranslating] = useState(false);
 
-  // Clear stream interval on unmount
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        clearInterval(streamRef.current);
-      }
-    };
-  }, []);
+  // Translation content
+  const [translatedTitle, setTranslatedTitle] = useState<string>("");
+  const [translatedContent, setTranslatedContent] = useState<string>("");
+  const [hasTranslation, setHasTranslation] = useState(false);
+
+  // Toasts - only for errors
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Streaming display
+  const { displayedText: displayedTitle, isComplete: titleComplete } =
+    useStreamingText(translatedTitle, isTranslating && !!translatedTitle, 20);
+  const { displayedText: displayedContent, progress } = useStreamingText(
+    translatedContent,
+    isTranslating && !!translatedContent,
+    10,
+  );
 
   // Load saved translation when article changes
   useEffect(() => {
     if (article) {
-      // Always reset to original view when changing articles
       setViewMode("original");
+      setTranslatedTitle("");
       setTranslatedContent("");
-      setDisplayedContent("");
-      setTranslating(false);
+      setIsTranslating(false);
       loadSavedTranslation();
     } else {
+      setTranslatedTitle("");
       setTranslatedContent("");
-      setDisplayedContent("");
       setHasTranslation(false);
       setViewMode("original");
-      if (streamRef.current) {
-        clearInterval(streamRef.current);
-        streamRef.current = null;
-      }
     }
   }, [article?.id]);
 
@@ -63,51 +125,28 @@ export function ArticleView({ article }: ArticleViewProps) {
         articleId: article.id,
       });
       if (saved) {
-        setTranslatedContent(saved);
+        // Parse saved translation (format: title\n---\ncontent)
+        const parts = saved.split("\n---\n");
+        if (parts.length >= 2) {
+          setTranslatedTitle(parts[0]);
+          setTranslatedContent(parts.slice(1).join("\n---\n"));
+        } else {
+          setTranslatedContent(saved);
+        }
         setHasTranslation(true);
-      } else {
-        setTranslatedContent("");
-        setHasTranslation(false);
       }
     } catch (e) {
       console.error("Failed to load translation:", e);
     }
   };
 
-  const addToast = (message: string, type: "success" | "error" | "info") => {
+  const addErrorToast = (message: string) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type: "error" }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
   };
-
-  // Stream display effect - progressively show content
-  const streamDisplay = useCallback((fullText: string, speed: number = 30) => {
-    // Clear any existing stream
-    if (streamRef.current) {
-      clearInterval(streamRef.current);
-    }
-
-    let index = 0;
-    setDisplayedContent("");
-    fullTranslationRef.current = fullText;
-
-    streamRef.current = setInterval(() => {
-      if (index < fullText.length) {
-        // Add characters in chunks for smoother display
-        const chunkSize = Math.min(3, fullText.length - index);
-        const nextChunk = fullText.slice(index, index + chunkSize);
-        setDisplayedContent((prev) => prev + nextChunk);
-        index += chunkSize;
-      } else {
-        if (streamRef.current) {
-          clearInterval(streamRef.current);
-          streamRef.current = null;
-        }
-      }
-    }, speed);
-  }, []);
 
   const formatDate = (timestamp: number) => {
     if (!timestamp || timestamp <= 0) return "Unknown date";
@@ -131,55 +170,63 @@ export function ArticleView({ article }: ArticleViewProps) {
 
   const handleOpenOriginal = () => {
     if (article) {
-      invoke("open_link", { url: article.link })
-        .then(() => {
-          addToast("Opening in browser...", "info");
-        })
-        .catch((e) => {
-          addToast(`Failed to open: ${e}`, "error");
-        });
+      invoke("open_link", { url: article.link }).catch((e) => {
+        addErrorToast(`Failed to open: ${e}`);
+      });
     }
   };
 
   const handleTranslate = async () => {
-    if (!article || translating) return;
+    if (!article || isTranslating) return;
 
     const content = article.content || article.summary || "";
-    if (!content.trim()) {
-      addToast("No content to translate", "error");
+    const title = article.title || "";
+
+    if (!content.trim() && !title.trim()) {
+      addErrorToast("No content to translate");
       return;
     }
 
-    setTranslating(true);
+    // Immediately switch to translated view
     setViewMode("translated");
-    addToast("Starting translation...", "info");
+    setIsTranslating(true);
+    setTranslatedTitle("");
+    setTranslatedContent("");
 
     try {
-      const result = await invoke<string>("translate_text", {
-        text: content.slice(0, 5000),
-        targetLang: "zh",
-      });
+      // Translate title and content in parallel
+      const [titleResult, contentResult] = await Promise.all([
+        title.trim()
+          ? invoke<string>("translate_text", {
+              text: title.slice(0, 200),
+              targetLang: "zh",
+            })
+          : Promise.resolve(""),
+        content.trim()
+          ? invoke<string>("translate_text", {
+              text: content.slice(0, 5000),
+              targetLang: "zh",
+            })
+          : Promise.resolve(""),
+      ]);
 
-      // Save translation
-      await invoke("save_translation", {
-        articleId: article.id,
-        content: result,
-      });
-
-      setTranslatedContent(result);
+      setTranslatedTitle(titleResult);
+      setTranslatedContent(contentResult);
       setHasTranslation(true);
 
-      // Stream display the result
-      streamDisplay(result, 20);
-
-      addToast("Translation completed!", "success");
+      // Save translation
+      const combined = `${titleResult}\n---\n${contentResult}`;
+      await invoke("save_translation", {
+        articleId: article.id,
+        content: combined,
+      });
     } catch (e) {
       console.error("Translation failed:", e);
       const errorMsg = e instanceof Error ? e.message : String(e);
-      addToast(`Translation failed: ${errorMsg}`, "error");
+      addErrorToast(`Translation failed: ${errorMsg}`);
       setViewMode("original");
     } finally {
-      setTranslating(false);
+      setIsTranslating(false);
     }
   };
 
@@ -188,53 +235,30 @@ export function ArticleView({ article }: ArticleViewProps) {
     const newStarred = article.isStarred === 0;
     try {
       await invoke("toggle_starred", { id: article.id, starred: newStarred });
-      addToast(
-        newStarred ? "Added to favorites" : "Removed from favorites",
-        "success",
-      );
     } catch (e) {
-      addToast("Failed to toggle star", "error");
+      addErrorToast("Failed to toggle star");
     }
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode);
-    if (mode === "translated" && translatedContent && !translating) {
-      // If switching to translated view and we have content, show it immediately
-      setDisplayedContent(translatedContent);
-    }
   };
 
-  const getContentToDisplay = () => {
-    switch (viewMode) {
-      case "original":
-        return article?.content || article?.summary || "";
-      case "translated":
-        return translating
-          ? displayedContent
-          : translatedContent || displayedContent;
-      case "split":
-        return article?.content || article?.summary || "";
-      default:
-        return article?.content || article?.summary || "";
-    }
-  };
+  // Determine what to display
+  const displayTitle =
+    viewMode === "translated"
+      ? (isTranslating ? displayedTitle : translatedTitle) ||
+        article?.title ||
+        ""
+      : article?.title || "";
 
-  // Debug article content
-  useEffect(() => {
-    if (article) {
-      console.log("[ArticleView] Article loaded:", {
-        id: article.id,
-        title: article.title,
-        hasContent: !!article.content,
-        contentLength: article.content?.length,
-        hasSummary: !!article.summary,
-        summaryLength: article.summary?.length,
-        pubDate: article.pubDate,
-        viewMode,
-      });
-    }
-  }, [article]);
+  const displayContent =
+    viewMode === "translated"
+      ? (isTranslating ? displayedContent : translatedContent) ||
+        article?.content ||
+        article?.summary ||
+        ""
+      : article?.content || article?.summary || "";
 
   if (!article) {
     return (
@@ -242,7 +266,7 @@ export function ArticleView({ article }: ArticleViewProps) {
         <div className="text-center">
           <Icon
             icon="mdi:newspaper-variant"
-            className="text-6xl mx-auto mb-4 text-muted-foreground"
+            className="text-6xl mx-auto mb-4"
           />
           <p>Select an article to read</p>
         </div>
@@ -250,34 +274,17 @@ export function ArticleView({ article }: ArticleViewProps) {
     );
   }
 
-  const mainContent = getContentToDisplay();
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-      {/* Toast Notifications */}
+      {/* Error Toast Notifications */}
       <div className="fixed top-16 right-4 z-50 space-y-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`px-4 py-2 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-right ${
-              toast.type === "success"
-                ? "bg-green-500 text-white"
-                : toast.type === "error"
-                  ? "bg-red-500 text-white"
-                  : "bg-blue-500 text-white"
-            }`}
+            className="px-4 py-2 rounded-lg shadow-lg text-sm font-medium bg-red-500 text-white animate-in slide-in-from-right"
           >
             <div className="flex items-center gap-2">
-              <Icon
-                icon={
-                  toast.type === "success"
-                    ? "mdi:check-circle"
-                    : toast.type === "error"
-                      ? "mdi:alert-circle"
-                      : "mdi:information"
-                }
-                className="text-lg"
-              />
+              <Icon icon="mdi:alert-circle" className="text-lg" />
               {toast.message}
             </div>
           </div>
@@ -287,8 +294,13 @@ export function ArticleView({ article }: ArticleViewProps) {
       {/* Article header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold mb-2">{article.title}</h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-semibold mb-2 transition-all duration-300">
+              {displayTitle}
+              {viewMode === "translated" && isTranslating && !titleComplete && (
+                <span className="inline-block w-2 h-5 ml-1 bg-primary animate-pulse" />
+              )}
+            </h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <Icon icon="mdi:newspaper-variant" className="text-sm" />
@@ -306,7 +318,7 @@ export function ArticleView({ article }: ArticleViewProps) {
 
           <button
             onClick={handleToggleStar}
-            className="text-xl transition-transform hover:scale-110 cursor-pointer p-1 rounded hover:bg-muted"
+            className="text-xl transition-transform hover:scale-110 cursor-pointer p-1 rounded hover:bg-muted flex-shrink-0"
             title="Toggle star"
           >
             <Icon
@@ -326,168 +338,95 @@ export function ArticleView({ article }: ArticleViewProps) {
             Open Original
           </button>
 
-          {!hasTranslation ? (
-            <button
-              onClick={handleTranslate}
-              disabled={translating}
-              className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
-            >
-              {translating ? (
-                <>
-                  <Icon icon="mdi:loading" className="animate-spin" />
-                  Translating...
-                </>
-              ) : (
-                <>
-                  <Icon icon="mdi:translate" />
-                  Translate
-                </>
-              )}
-            </button>
-          ) : (
-            <>
-              {/* View mode toggle buttons */}
-              <div className="flex rounded-md overflow-hidden border border-border">
-                <button
-                  onClick={() => handleViewModeChange("original")}
-                  className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors ${
-                    viewMode === "original"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-muted/80"
-                  }`}
-                >
-                  <Icon icon="mdi:file-document" className="text-sm" />
-                  Original
-                </button>
-                <button
-                  onClick={() => handleViewModeChange("translated")}
-                  className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors border-l border-border ${
-                    viewMode === "translated"
-                      ? "bg-green-600 text-white"
-                      : "bg-muted hover:bg-muted/80"
-                  }`}
-                >
-                  <Icon icon="mdi:translate" className="text-sm" />
-                  Translated
-                </button>
-                <button
-                  onClick={() => handleViewModeChange("split")}
-                  className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors border-l border-border ${
-                    viewMode === "split"
-                      ? "bg-blue-600 text-white"
-                      : "bg-muted hover:bg-muted/80"
-                  }`}
-                >
-                  <Icon icon="mdi:view-split-vertical" className="text-sm" />
-                  Split
-                </button>
-              </div>
-
-              {/* Re-translate button */}
+          {/* View mode toggle - only show when has translation or translating */}
+          {(hasTranslation || isTranslating) && (
+            <div className="flex rounded-md overflow-hidden border border-border">
               <button
-                onClick={handleTranslate}
-                disabled={translating}
-                className="px-3 py-1.5 text-sm bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-                title="Re-translate"
+                onClick={() => handleViewModeChange("original")}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors ${
+                  viewMode === "original"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                }`}
               >
-                {translating ? (
-                  <Icon icon="mdi:loading" className="animate-spin" />
-                ) : (
-                  <Icon icon="mdi:refresh" />
-                )}
+                <Icon icon="mdi:file-document" className="text-sm" />
+                Original
               </button>
-            </>
+              <button
+                onClick={() => handleViewModeChange("translated")}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors border-l border-border ${
+                  viewMode === "translated"
+                    ? "bg-green-600 text-white"
+                    : "bg-muted hover:bg-muted/80"
+                }`}
+              >
+                <Icon icon="mdi:translate" className="text-sm" />
+                {isTranslating ? "Translating..." : "Translated"}
+              </button>
+            </div>
           )}
+
+          {/* Translate / Re-translate button */}
+          <button
+            onClick={handleTranslate}
+            disabled={isTranslating}
+            className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+            title={hasTranslation ? "Re-translate" : "Translate"}
+          >
+            {isTranslating ? (
+              <Icon icon="mdi:loading" className="animate-spin" />
+            ) : hasTranslation ? (
+              <Icon icon="mdi:refresh" />
+            ) : (
+              <Icon icon="mdi:translate" />
+            )}
+            {isTranslating
+              ? "Translating..."
+              : hasTranslation
+                ? "Re-translate"
+                : "Translate"}
+          </button>
         </div>
       </div>
 
       {/* Article content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {viewMode === "split" && hasTranslation ? (
-          // Split view: original on left, translated on right
-          <div className="grid grid-cols-2 gap-6">
-            <div className="border-r border-border pr-6">
-              <div className="sticky top-0 bg-background pb-2 mb-2 border-b">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Original
-                </span>
+        {isTranslating && viewMode === "translated" && (
+          <div className="mb-4 flex items-center gap-3 text-sm text-muted-foreground">
+            <Icon icon="mdi:loading" className="animate-spin" />
+            <div className="flex-1">
+              <div className="flex justify-between mb-1">
+                <span>Translating...</span>
+                <span>{Math.round(progress * 100)}%</span>
               </div>
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: article.content || article.summary || "",
-                }}
-              />
-            </div>
-            <div className="pl-2">
-              <div className="sticky top-0 bg-background pb-2 mb-2 border-b">
-                <span className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wider">
-                  Translated
-                </span>
+              <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-100"
+                  style={{ width: `${progress * 100}%` }}
+                />
               </div>
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: (translating
-                    ? displayedContent
-                    : translatedContent
-                  ).replace(/\n/g, "<br/>"),
-                }}
-              />
             </div>
           </div>
-        ) : viewMode === "translated" ? (
-          // Translated view
-          <div>
-            {translating && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Icon icon="mdi:loading" className="animate-spin" />
-                <span>Translating...</span>
-                <span className="text-xs">
-                  (
-                  {Math.round(
-                    (displayedContent.length /
-                      (fullTranslationRef.current.length || 1)) *
-                      100,
-                  )}
-                  %)
-                </span>
-              </div>
-            )}
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: (translating
-                  ? displayedContent
-                  : translatedContent
-                ).replace(/\n/g, "<br/>"),
-              }}
-            />
+        )}
+
+        {!displayContent || displayContent.trim() === "" ? (
+          <div className="text-muted-foreground text-center py-8">
+            <Icon icon="mdi:file-outline" className="text-4xl mx-auto mb-2" />
+            <p>No content available for this article.</p>
+            <button
+              onClick={handleOpenOriginal}
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/80 transition-colors"
+            >
+              Open Original Article
+            </button>
           </div>
         ) : (
-          // Original view
-          <div>
-            {!mainContent || mainContent.trim() === "" ? (
-              <div className="text-muted-foreground text-center py-8">
-                <Icon
-                  icon="mdi:file-outline"
-                  className="text-4xl mx-auto mb-2"
-                />
-                <p>No content available for this article.</p>
-                <button
-                  onClick={handleOpenOriginal}
-                  className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/80 transition-colors"
-                >
-                  Open Original Article
-                </button>
-              </div>
-            ) : (
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: mainContent }}
-              />
-            )}
-          </div>
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{
+              __html: displayContent.replace(/\n/g, "<br/>"),
+            }}
+          />
         )}
       </div>
     </div>
