@@ -63,15 +63,20 @@ function App() {
   }
 
   const handleRefresh = async () => {
+    if (isRefreshing) return; // Prevent double clicks
     setIsRefreshing(true);
     try {
       const result = await invoke<number>("refresh_all_feeds");
       console.log(`Refreshed ${result} articles`);
-      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      // Invalidate and refetch articles
+      await queryClient.invalidateQueries({ queryKey: ["articles"] });
     } catch (e) {
       console.error("Refresh failed:", e);
+      // Show error to user
+      alert(`Refresh failed: ${e}`);
+    } finally {
+      setIsRefreshing(false);
     }
-    setIsRefreshing(false);
   };
 
   const handleToggleTheme = () => {

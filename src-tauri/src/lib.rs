@@ -54,15 +54,26 @@ fn refresh_feed(feed_id: String) -> Result<i64, String> {
 }
 
 #[tauri::command]
-fn refresh_all_feeds() -> Result<i64, String> {
+async fn refresh_all_feeds() -> Result<i64, String> {
     let feeds = get_feeds()?;
     let mut total = 0;
+    let mut errors = Vec::new();
     
+    // Refresh feeds sequentially to avoid overwhelming the system
     for feed in feeds {
         match fetch_and_save_feed(&feed.url, &feed.id) {
             Ok(count) => total += count,
-            Err(e) => eprintln!("Failed to refresh feed {}: {}", feed.title, e),
+            Err(e) => {
+                let err_msg = format!("Failed to refresh feed '{}': {}", feed.title, e);
+                eprintln!("{}", err_msg);
+                errors.push(err_msg);
+            }
         }
+    }
+    
+    // Return error if all feeds failed
+    if total == 0 && !errors.is_empty() {
+        return Err(format!("All feeds failed to refresh. First error: {}", errors[0]));
     }
     
     Ok(total)
@@ -97,45 +108,100 @@ fn translate_text(text: String, target_lang: String) -> Result<String, String> {
     let api_key = get_setting("translation_api_key".to_string())?
         .unwrap_or_default();
     
-    // Ensure base_url doesn't end with /
-    let base_url = base_url.trim_end_matches('/');
-    let translate_url = format!("{}/translate", base_url);
+    let prompt = get_setting("translation_prompt".to_string())?
+        .unwrap_or_else(|| "Translate the following text to Chinese:".to_string());
+    
+    // Determine if this is OpenAI API or LibreTranslate
+    let is_openai = base_url.contains("openai.com") || base_url.contains("openai") || 
+                    (!api_key.is_empty() && base_url != "https://libretranslate.com" && !base_url.contains("libretranslate"));
     
     let client = reqwest::blocking::Client::new();
     
-    // Build request body
-    let mut body = serde_json::json!({
-        "q": text,
-        "source": "auto",
-        "target": target_lang,
-        "format": "text"
-    });
-    
-    // Add API key if provided
-    if !api_key.is_empty() {
-        body["api_key"] = serde_json::json!(api_key);
+    if is_openai {
+        // OpenAI API format
+        let api_url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+        
+        let request_body = serde_json::json!({
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": prompt
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            "temperature": 0.3
+        });
+        
+        let mut request = client
+            .post(&api_url)
+            .json(&request_body);
+        
+        // Add Authorization header
+        if !api_key.is_empty() {
+            request = request.header("Authorization", format!("Bearer {}", api_key));
+        }
+        
+        let response = request
+            .send()
+            .map_err(|e| format!("OpenAI request failed: {}", e))?;
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().unwrap_or_default();
+            return Err(format!("OpenAI API error ({}): {}", status, error_text));
+        }
+        
+        let json: serde_json::Value = response.json()
+            .map_err(|e| format!("Parse OpenAI response failed: {}", e))?;
+        
+        let translated = json["choices"]
+            .get(0)
+            .and_then(|c| c["message"]["content"].as_str())
+            .ok_or_else(|| format!("Invalid OpenAI response: {:?}", json))?
+            .to_string();
+        
+        Ok(translated)
+    } else {
+        // LibreTranslate API format
+        let translate_url = format!("{}/translate", base_url.trim_end_matches('/'));
+        
+        let mut body = serde_json::json!({
+            "q": text,
+            "source": "auto",
+            "target": target_lang,
+            "format": "text"
+        });
+        
+        if !api_key.is_empty() {
+            body["api_key"] = serde_json::json!(api_key);
+        }
+        
+        let response = client
+            .post(&translate_url)
+            .json(&body)
+            .send()
+            .map_err(|e| format!("Translation request failed: {}", e))?;
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().unwrap_or_default();
+            return Err(format!("Translation service error ({}): {}", status, error_text));
+        }
+        
+        let json: serde_json::Value = response.json()
+            .map_err(|e| format!("Parse response failed: {}", e))?;
+        
+        let translated = json["translatedText"]
+            .as_str()
+            .ok_or_else(|| format!("Invalid translation response: {:?}", json))?
+            .to_string();
+        
+        Ok(translated)
     }
-    
-    let response = client
-        .post(&translate_url)
-        .json(&body)
-        .send()
-        .map_err(|e| format!("Translation request failed: {}", e))?;
-    
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response.text().unwrap_or_default();
-        return Err(format!("Translation service error ({}): {}", status, error_text));
-    }
-    
-    let json: serde_json::Value = response.json().map_err(|e| format!("Parse response failed: {}", e))?;
-    
-    let translated = json["translatedText"]
-        .as_str()
-        .ok_or_else(|| format!("Invalid translation response: {:?}", json))?
-        .to_string();
-    
-    Ok(translated)
 }
 
 #[tauri::command]

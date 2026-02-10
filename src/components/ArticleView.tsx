@@ -99,7 +99,7 @@ export function ArticleView({ article }: ArticleViewProps) {
 
           <button
             onClick={handleToggleStar}
-            className="text-xl transition-transform hover:scale-110"
+            className="text-xl transition-transform hover:scale-110 cursor-pointer"
             title="Toggle star"
           >
             <Icon
@@ -112,14 +112,14 @@ export function ArticleView({ article }: ArticleViewProps) {
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <button
             onClick={handleOpenOriginal}
-            className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+            className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/80 hover:shadow-md active:scale-95 transition-all cursor-pointer"
           >
             Open Original
           </button>
           <button
             onClick={handleTranslate}
             disabled={translating}
-            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-1"
+            className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/70 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
           >
             {translating ? (
               <>
