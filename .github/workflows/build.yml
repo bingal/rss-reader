@@ -96,8 +96,30 @@ jobs:
         run: |
           export MACOSX_DEPLOYMENT_TARGET=10.13
           export CI=true
-          # Build universal binary that supports both Intel and Apple Silicon
-          bun run tauri build -- --target universal-apple-darwin
+          # Build for both architectures separately
+          bun run tauri build -- --target aarch64-apple-darwin
+          bun run tauri build -- --target x86_64-apple-darwin
+          # Create universal binary using lipo
+          mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/dmg
+          cd src-tauri/target
+          # Merge the app bundles
+          lipo -create \
+            aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
+            x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
+            -output universal-rss-reader
+          # Copy the aarch64 app as base and replace the binary
+          cp -r aarch64-apple-darwin/release/bundle/macos/rss-reader.app universal-apple-darwin/release/bundle/macos/
+          mv universal-rss-reader universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader
+          # Create DMG from universal app
+          cd ../..
+          create-dmg \
+            --volname "RSS Reader" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --app-drop-link 600 185 \
+            "target/universal-apple-darwin/release/bundle/dmg/rss-reader_universal.dmg" \
+            "target/universal-apple-darwin/release/bundle/macos/rss-reader.app"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -186,10 +208,14 @@ jobs:
             cmake \
             libfuse2 \
             file \
-            wget
+            wget \
+            patchelf \
+            squashfs-tools
 
       - name: Build Linux app
         run: bun run tauri build
+        env:
+          TAURI_BUNDLER_TOOLS: "1"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
