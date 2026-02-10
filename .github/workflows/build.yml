@@ -19,6 +19,7 @@ on:
 
 env:
   RUST_TOOLCHAIN: stable
+  CARGO_INCREMENTAL: 0
 
 jobs:
   # Check code quality
@@ -52,9 +53,9 @@ jobs:
       - name: Run tests
         run: bun run test:run
 
-  # Build for macOS (unsigned)
-  build-macos:
-    name: Build macOS
+  # Build for macOS ARM64
+  build-macos-arm64:
+    name: Build macOS ARM64
     runs-on: macos-14
     needs: check
     steps:
@@ -75,82 +76,88 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
+          targets: aarch64-apple-darwin
 
-      - name: Install macOS dependencies
-        run: brew install create-dmg
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: macos-arm64
 
-      - name: Build for aarch64 (Apple Silicon)
+      - name: Build backend sidecar
         run: |
           cd backend
           bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
-          cd ..
-          export MACOSX_DEPLOYMENT_TARGET=10.13
-          bun run tauri build -- --target aarch64-apple-darwin
 
-      - name: Build for x86_64 (Intel)
-        run: |
-          cd backend
-          bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
-          cd ..
-          export MACOSX_DEPLOYMENT_TARGET=10.13
-          bun run tauri build -- --target x86_64-apple-darwin
-
-      - name: Create Universal Binary
-        run: |
-          # Check if builds succeeded
-          if [ ! -d "src-tauri/target/aarch64-apple-darwin/release/bundle/macos" ] || \
-             [ ! -d "src-tauri/target/x86_64-apple-darwin/release/bundle/macos" ]; then
-            echo "Error: One or both architecture builds failed"
-            ls -la src-tauri/target/
-            exit 1
-          fi
-
-          mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/dmg
-          mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos
-
-          # Copy the aarch64 app bundle as base
-          cp -r src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app \
-                src-tauri/target/universal-apple-darwin/release/bundle/macos/
-
-          # Create universal binary using lipo
-          lipo -create \
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
-            src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader \
-            -output src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/rss-reader
-
-          # Handle backend binaries if they exist
-          if [ -d "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries" ]; then
-            mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries
-            
-            # Copy both backend binaries
-            if [ -f "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin" ]; then
-              cp src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-aarch64-apple-darwin \
-                 src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/
-            fi
-            
-            if [ -f "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin" ]; then
-              cp src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/backend-x86_64-apple-darwin \
-                 src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app/Contents/Resources/binaries/
-            fi
-          fi
-
-          # Create DMG
-          create-dmg \
-            --volname "RSS Reader" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
-            "src-tauri/target/universal-apple-darwin/release/bundle/dmg/rss-reader_universal.dmg" \
-            "src-tauri/target/universal-apple-darwin/release/bundle/macos/rss-reader.app" 2>/dev/null || true
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          args: --target aarch64-apple-darwin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macOS App
+          name: macOS-ARM64
           path: |
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
+          if-no-files-found: ignore
+
+  # Build for macOS Intel
+  build-macos-intel:
+    name: Build macOS Intel
+    runs-on: macos-13
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Install backend dependencies
+        run: cd backend && bun install
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: macos-intel
+
+      - name: Build backend sidecar
+        run: |
+          cd backend
+          bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          args: --target x86_64-apple-darwin
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-Intel
+          path: |
+            src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app
+          if-no-files-found: ignore
 
   # Build for Windows
   build-windows:
@@ -172,24 +179,38 @@ jobs:
       - name: Install backend dependencies
         run: cd backend && bun install
 
-      - name: Build backend binary
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: windows
+
+      - name: Build backend sidecar
         run: |
           cd backend
           bun build src/index.ts --compile --target=bun-windows-x64 --outfile ../src-tauri/binaries/backend-x86_64-pc-windows-msvc.exe
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build Windows app
-        run: bun run tauri build
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          args: --target x86_64-pc-windows-msvc
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Windows App
+          name: Windows
           path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: ignore
 
   # Build for Linux
   build-linux:
@@ -211,50 +232,60 @@ jobs:
       - name: Install backend dependencies
         run: cd backend && bun install
 
-      - name: Build backend binary
-        run: |
-          cd backend
-          bun build src/index.ts --compile --target=bun-linux-x64 --outfile ../src-tauri/binaries/backend-x86_64-unknown-linux-gnu
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
 
-      - name: Install dependencies for building
+      - name: Setup Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: linux
+
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
-            libssl-dev \
-            pkg-config \
-            libudev-dev \
-            libdbus-1-dev \
-            cmake \
-            libfuse2 \
-            file \
-            wget \
+            librsvg2-dev \
             patchelf \
-            squashfs-tools
+            libfuse2 \
+            file
+          # Fix for linuxdeploy in GitHub Actions (FUSE not available)
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $GITHUB_ENV
 
-      - name: Build Linux app (deb and rpm only)
+      - name: Build backend sidecar
         run: |
-          # Build with only deb and rpm targets to avoid AppImage issues
-          bun run tauri build -- --bundles deb,rpm
+          cd backend
+          bun build src/index.ts --compile --target=bun-linux-x64 --outfile ../src-tauri/binaries/backend-x86_64-unknown-linux-gnu
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          args: --target x86_64-unknown-linux-gnu --bundles deb,rpm
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Linux App
+          name: Linux
           path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/rpm/*.rpm
+          if-no-files-found: ignore
 
   # Create release on tag
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build-macos-arm64, build-macos-intel, build-windows, build-linux]
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -265,11 +296,31 @@ jobs:
         with:
           path: artifacts
 
+      - name: Display structure of downloaded files
+        run: |
+          ls -R artifacts
+          echo "---"
+          find artifacts -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \) | head -20
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Flatten artifacts for release
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \) -exec cp {} release-files/ \;
+          ls -la release-files/
+
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
-          draft: false
-          prerelease: false
+          draft: true
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
+          name: RSS Reader v${{ steps.version.outputs.version }}
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
