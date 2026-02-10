@@ -60,11 +60,25 @@ async fn refresh_all_feeds() -> Result<i64, String> {
     let mut errors = Vec::new();
     
     // Refresh feeds sequentially to avoid overwhelming the system
+    // Use spawn_blocking since fetch_and_save_feed uses blocking reqwest
     for feed in feeds {
-        match fetch_and_save_feed(&feed.url, &feed.id) {
-            Ok(count) => total += count,
+        let url = feed.url.clone();
+        let id = feed.id.clone();
+        let title = feed.title.clone();
+        
+        let result = tokio::task::spawn_blocking(move || {
+            fetch_and_save_feed(&url, &id)
+        }).await;
+        
+        match result {
+            Ok(Ok(count)) => total += count,
+            Ok(Err(e)) => {
+                let err_msg = format!("Failed to refresh feed '{}': {}", title, e);
+                eprintln!("{}", err_msg);
+                errors.push(err_msg);
+            }
             Err(e) => {
-                let err_msg = format!("Failed to refresh feed '{}': {}", feed.title, e);
+                let err_msg = format!("Task panicked for feed '{}': {}", title, e);
                 eprintln!("{}", err_msg);
                 errors.push(err_msg);
             }
