@@ -19,6 +19,7 @@ app.get("/status", (c) => {
         initialized: true,
         error: null,
         message: "Database reinitialized successfully",
+        dbPath: status.dbPath,
       });
     } catch (error: any) {
       return c.json(
@@ -26,6 +27,7 @@ app.get("/status", (c) => {
           initialized: false,
           error: error.message,
           message: "Failed to reinitialize database",
+          dbPath: status.dbPath,
         },
         500,
       );
@@ -160,7 +162,6 @@ app.post("/:id/refresh", async (c) => {
       savedCount++;
     }
 
-    // Update feed timestamp
     db.query("UPDATE feeds SET updated_at = ? WHERE id = ?").run(now, id);
 
     return c.json({ count: savedCount });
@@ -170,8 +171,64 @@ app.post("/:id/refresh", async (c) => {
   }
 });
 
+// Helper function to refresh a single feed with timeout
+async function refreshSingleFeed(
+  feedId: string,
+  url: string,
+  title: string,
+  db: any,
+): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    // Fetch articles with individual timeout
+    const articles = await fetchFeed(url);
+    const now = Math.floor(Date.now() / 1000);
+
+    const linksQuery = db.query("SELECT link FROM articles WHERE feed_id = ?");
+    const existingLinks = new Set(
+      (linksQuery.all(feedId) as { link: string }[]).map((row) => row.link),
+    );
+
+    let savedCount = 0;
+    const insertQuery = db.query(`
+      INSERT OR IGNORE INTO articles 
+      (id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+    `);
+
+    for (const article of articles) {
+      if (existingLinks.has(article.link)) {
+        continue;
+      }
+
+      insertQuery.run(
+        article.id,
+        feedId,
+        article.title,
+        article.link,
+        article.content,
+        article.summary || null,
+        article.author || null,
+        article.pubDate || now,
+        now,
+      );
+
+      savedCount++;
+    }
+
+    db.query("UPDATE feeds SET updated_at = ? WHERE id = ?").run(now, feedId);
+
+    return { success: true, count: savedCount };
+  } catch (error: any) {
+    const errorMsg = error.message || "Unknown error";
+    console.error(`[Feeds] Failed to refresh feed '${title}': ${errorMsg}`);
+    return { success: false, count: 0, error: `${title}: ${errorMsg}` };
+  }
+}
+
 // POST /api/feeds/refresh-all - Refresh all feeds
 app.post("/refresh-all", async (c) => {
+  console.log("[Feeds] Starting refresh-all...");
+
   try {
     const db = getDatabase();
     const feedsQuery = db.query("SELECT id, url, title FROM feeds");
@@ -181,72 +238,41 @@ app.post("/refresh-all", async (c) => {
       title: string;
     }[];
 
+    console.log(`[Feeds] Found ${feeds.length} feeds to refresh`);
+
     let totalCount = 0;
     const errors: string[] = [];
 
+    // Process feeds sequentially to avoid overwhelming the system
     for (const feed of feeds) {
-      try {
-        const articles = await fetchFeed(feed.url);
-        const now = Math.floor(Date.now() / 1000);
+      console.log(`[Feeds] Refreshing feed: ${feed.title}`);
+      const result = await refreshSingleFeed(feed.id, feed.url, feed.title, db);
 
-        const linksQuery = db.query(
-          "SELECT link FROM articles WHERE feed_id = ?",
+      if (result.success) {
+        totalCount += result.count;
+        console.log(
+          `[Feeds] Refreshed feed '${feed.title}': ${result.count} new articles`,
         );
-        const existingLinks = new Set(
-          (linksQuery.all(feed.id) as { link: string }[]).map(
-            (row) => row.link,
-          ),
-        );
-
-        const insertQuery = db.query(`
-          INSERT OR IGNORE INTO articles 
-          (id, feed_id, title, link, content, summary, author, pub_date, is_read, is_starred, fetched_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
-        `);
-
-        for (const article of articles) {
-          if (existingLinks.has(article.link)) {
-            continue;
-          }
-
-          insertQuery.run(
-            article.id,
-            feed.id,
-            article.title,
-            article.link,
-            article.content,
-            article.summary || null,
-            article.author || null,
-            article.pubDate || now,
-            now,
-          );
-
-          totalCount++;
-        }
-
-        db.query("UPDATE feeds SET updated_at = ? WHERE id = ?").run(
-          now,
-          feed.id,
-        );
-      } catch (error: any) {
-        errors.push(`Failed to refresh feed '${feed.title}': ${error.message}`);
-        console.error(errors[errors.length - 1]);
+      } else {
+        errors.push(result.error!);
       }
     }
 
-    if (totalCount === 0 && errors.length > 0) {
-      return c.json(
-        { error: `All feeds failed to refresh. First error: ${errors[0]}` },
-        400,
-      );
-    }
+    console.log(
+      `[Feeds] Refresh-all complete: ${totalCount} new articles, ${errors.length} errors`,
+    );
 
+    // Always return 200 with results, even if some feeds failed
     return c.json({
       count: totalCount,
       errors: errors.length > 0 ? errors : undefined,
+      totalFeeds: feeds.length,
+      successCount: feeds.length - errors.length,
+      failedCount: errors.length,
     });
   } catch (error: any) {
-    return c.json({ error: error.message || "Failed to refresh feeds" }, 400);
+    console.error("[Feeds] Critical error in refresh-all:", error.message);
+    return c.json({ error: error.message || "Failed to refresh feeds" }, 500);
   }
 });
 
