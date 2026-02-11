@@ -30,7 +30,10 @@ interface SidebarProps {
   onRefresh: () => void;
   onToggleTheme: () => void;
   isRefreshing: boolean;
-  onRefreshFeed?: (feedId: string) => Promise<{ count: number }>;
+  onRefreshFeed?: (
+    feedId: string,
+    feedName: string,
+  ) => Promise<{ count: number }>;
 }
 
 export function Sidebar({
@@ -124,9 +127,15 @@ export function Sidebar({
   });
 
   const refreshFeedMutation = useMutation({
-    mutationFn: async (feedId: string) => {
+    mutationFn: async ({
+      feedId,
+      feedName,
+    }: {
+      feedId: string;
+      feedName: string;
+    }) => {
       if (onRefreshFeed) {
-        return await onRefreshFeed(feedId);
+        return await onRefreshFeed(feedId, feedName);
       } else {
         const result = await api.feeds.refresh(feedId);
         return result;
@@ -222,7 +231,10 @@ export function Sidebar({
 
   const handleRefreshFeedClick = () => {
     if (contextMenu.feedId) {
-      refreshFeedMutation.mutate(contextMenu.feedId);
+      refreshFeedMutation.mutate({
+        feedId: contextMenu.feedId,
+        feedName: contextMenu.feedTitle,
+      });
     }
   };
 

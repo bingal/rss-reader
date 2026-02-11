@@ -5,34 +5,38 @@ import { ArticleView } from "./components/ArticleView";
 import { OPMLImport } from "./components/OPMLImport";
 import { Settings } from "./components/Settings";
 import { KeyboardShortcutsHelp } from "./components/KeyboardShortcutsHelp";
-import { Toast } from "./components/Toast";
 import { useAppStore, Article } from "@/stores/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-interface ToastState {
-  show: boolean;
+interface RefreshProgress {
+  current: number;
+  total: number;
+  feedName: string;
+  status: "refreshing" | "success" | "error" | "idle";
   message: string;
-  subMessage: string;
-  type: "success" | "info" | "error";
 }
 
 function App() {
   const { theme, setTheme, updateSettings, selectedFeedId, filter } =
     useAppStore();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOPML, setShowOPML] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [toast, setToast] = useState<ToastState>({
-    show: false,
-    message: "",
-    subMessage: "",
-    type: "info",
-  });
   const queryClient = useQueryClient();
+
+  // Refresh progress state
+  const [progress, setProgress] = useState<RefreshProgress>({
+    current: 0,
+    total: 0,
+    feedName: "",
+    status: "idle",
+    message: "",
+  });
+
+  const isRefreshing = progress.status === "refreshing";
 
   // Load settings from backend on startup
   useEffect(() => {
@@ -80,20 +84,14 @@ function App() {
   });
   const articles = articlesData || [];
 
-  // Fetch total article count (without filter)
-  const { data: totalCountData } = useQuery({
-    queryKey: ["articles", "total-count"],
+  // Fetch all feeds
+  const { data: feedsData } = useQuery({
+    queryKey: ["feeds"],
     queryFn: async () => {
-      // Get total count by fetching with a large limit
-      const allArticles = await api.articles.fetch({
-        limit: 999999,
-        offset: 0,
-      });
-      return allArticles.length;
+      return await api.feeds.getAll();
     },
-    staleTime: 30000, // 30 seconds
   });
-  const totalCount = totalCountData || 0;
+  const feeds = feedsData || [];
 
   // Apply theme
   document.documentElement.classList.remove("light", "dark");
@@ -107,62 +105,98 @@ function App() {
     document.documentElement.classList.add(theme);
   }
 
-  const showToast = (
-    message: string,
-    subMessage: string,
-    type: "success" | "info" | "error" = "info",
-  ) => {
-    setToast({ show: true, message, subMessage, type });
-  };
-
-  const hideToast = () => {
-    setToast((prev) => ({ ...prev, show: false }));
-  };
-
   const handleRefresh = async () => {
-    if (isRefreshing) return; // Prevent double clicks
-    setIsRefreshing(true);
-    try {
-      const result = await api.feeds.refreshAll();
-      console.log(`Refreshed ${result.count} articles`);
-      // Invalidate and refetch articles
-      await queryClient.invalidateQueries({ queryKey: ["articles"] });
+    if (isRefreshing || feeds.length === 0) return;
 
-      // Show toast notification
-      const newCount = result.count;
-      const hasErrors = result.errors && result.errors.length > 0;
+    const total = feeds.length;
+    let successCount = 0;
+    let errorCount = 0;
+    let totalNewArticles = 0;
+    const errors: string[] = [];
 
-      if (hasErrors) {
-        // Partial success - some feeds failed
-        const errorCount = result.errors!.length;
-        if (newCount > 0) {
-          showToast(
-            `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
-            `${errorCount} feed${errorCount > 1 ? "s" : ""} failed to refresh`,
-            "info",
-          );
+    setProgress({
+      current: 0,
+      total,
+      feedName: "",
+      status: "refreshing",
+      message: `Starting refresh of ${total} feeds...`,
+    });
+
+    for (let i = 0; i < feeds.length; i++) {
+      const feed = feeds[i];
+      const currentNum = i + 1;
+
+      setProgress({
+        current: currentNum,
+        total,
+        feedName: feed.title,
+        status: "refreshing",
+        message: `(${currentNum}/${total}) ${feed.title}`,
+      });
+
+      try {
+        const result = await api.feeds.refresh(feed.id);
+
+        if (result.success) {
+          successCount++;
+          totalNewArticles += result.count;
+          setProgress({
+            current: currentNum,
+            total,
+            feedName: feed.title,
+            status: "refreshing",
+            message: `(${currentNum}/${total}) ${feed.title} - ${result.count} new`,
+          });
         } else {
-          showToast(
-            "No new articles",
-            `${errorCount} feed${errorCount > 1 ? "s" : ""} failed to refresh`,
-            "info",
-          );
+          errorCount++;
+          errors.push(feed.title);
+          setProgress({
+            current: currentNum,
+            total,
+            feedName: feed.title,
+            status: "refreshing",
+            message: `(${currentNum}/${total}) ${feed.title} - Failed`,
+          });
         }
-      } else if (newCount > 0) {
-        showToast(
-          `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
-          `Total ${totalCount + newCount} articles`,
-          "success",
-        );
-      } else {
-        showToast("No new articles", `Total ${totalCount} articles`, "info");
+      } catch (error: any) {
+        errorCount++;
+        errors.push(feed.title);
+        setProgress({
+          current: currentNum,
+          total,
+          feedName: feed.title,
+          status: "refreshing",
+          message: `(${currentNum}/${total}) ${feed.title} - Error`,
+        });
       }
-    } catch (e) {
-      console.error("Refresh failed:", e);
-      showToast("Refresh failed", String(e), "error");
-    } finally {
-      setIsRefreshing(false);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
+
+    await queryClient.invalidateQueries({ queryKey: ["articles"] });
+
+    const finalMessage =
+      errorCount > 0
+        ? `Done: ${totalNewArticles} new, ${errorCount} failed`
+        : `Done: ${totalNewArticles} new articles`;
+
+    setProgress({
+      current: total,
+      total,
+      feedName: "",
+      status: errorCount > 0 ? "error" : "success",
+      message: finalMessage,
+    });
+
+    setTimeout(() => {
+      setProgress({
+        current: 0,
+        total: 0,
+        feedName: "",
+        status: "idle",
+        message: "",
+      });
+    }, 5000);
   };
 
   const handleToggleTheme = () => {
@@ -184,25 +218,69 @@ function App() {
     }
   };
 
-  const handleRefreshFeed = async (feedId: string) => {
+  const handleRefreshFeed = async (feedId: string, feedName?: string) => {
+    const name = feedName || "Feed";
+
+    setProgress({
+      current: 1,
+      total: 1,
+      feedName: name,
+      status: "refreshing",
+      message: `Refreshing ${name}...`,
+    });
+
     try {
       const result = await api.feeds.refresh(feedId);
       await queryClient.invalidateQueries({ queryKey: ["articles"] });
 
-      const newCount = result.count;
-      if (newCount > 0) {
-        showToast(
-          `Added ${newCount} new article${newCount > 1 ? "s" : ""}`,
-          `Total ${totalCount + newCount} articles`,
-          "success",
-        );
+      if (result.success) {
+        setProgress({
+          current: 1,
+          total: 1,
+          feedName: name,
+          status: "success",
+          message: `${name}: ${result.count} new articles`,
+        });
       } else {
-        showToast("No new articles", `Total ${totalCount} articles`, "info");
+        setProgress({
+          current: 1,
+          total: 1,
+          feedName: name,
+          status: "error",
+          message: `${name}: Failed`,
+        });
       }
+
+      setTimeout(() => {
+        setProgress({
+          current: 0,
+          total: 0,
+          feedName: "",
+          status: "idle",
+          message: "",
+        });
+      }, 3000);
+
       return result;
     } catch (e) {
-      console.error("Failed to refresh feed:", e);
-      showToast("Failed to refresh feed", String(e), "error");
+      setProgress({
+        current: 1,
+        total: 1,
+        feedName: name,
+        status: "error",
+        message: `${name}: Error`,
+      });
+
+      setTimeout(() => {
+        setProgress({
+          current: 0,
+          total: 0,
+          feedName: "",
+          status: "idle",
+          message: "",
+        });
+      }, 3000);
+
       throw e;
     }
   };
@@ -238,11 +316,27 @@ function App() {
       </div>
 
       {/* Status bar */}
-      <footer className="h-6 flex items-center justify-between px-4 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+      <footer className="h-6 flex items-center px-4 border-t border-border bg-muted/20 text-xs text-muted-foreground">
         <span>
           {articles.length} articles
           {selectedArticle && " • Selected"}
         </span>
+        {progress.status !== "idle" && (
+          <span className="ml-4 truncate">
+            <span
+              className={
+                progress.status === "error"
+                  ? "text-destructive"
+                  : progress.status === "success"
+                    ? "text-green-600"
+                    : ""
+              }
+            >
+              {progress.message}
+            </span>
+          </span>
+        )}
+        <div className="flex-1"></div>
         <button
           onClick={() => setShowShortcuts(true)}
           className="transition-colors hover:text-foreground"
@@ -261,16 +355,6 @@ function App() {
       <KeyboardShortcutsHelp
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
-      />
-
-      {/* Toast Notification */}
-      <Toast
-        message={toast.message}
-        subMessage={toast.subMessage}
-        type={toast.type}
-        isVisible={toast.show}
-        onClose={hideToast}
-        duration={3000}
       />
     </div>
   );
