@@ -109,7 +109,6 @@ function App() {
     if (isRefreshing || feeds.length === 0) return;
 
     const total = feeds.length;
-    let successCount = 0;
     let errorCount = 0;
     let totalNewArticles = 0;
     const errors: string[] = [];
@@ -138,7 +137,6 @@ function App() {
         const result = await api.feeds.refresh(feed.id);
 
         if (result.success) {
-          successCount++;
           totalNewArticles += result.count;
           setProgress({
             current: currentNum,
@@ -158,7 +156,7 @@ function App() {
             message: `(${currentNum}/${total}) ${feed.title} - Failed`,
           });
         }
-      } catch (error: any) {
+      } catch {
         errorCount++;
         errors.push(feed.title);
         setProgress({
