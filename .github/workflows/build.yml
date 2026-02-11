@@ -53,11 +53,71 @@ jobs:
       - name: Run tests
         run: bun run test:run
 
-  # Build for macOS ARM64
+  # Build for macOS ARM64 (backend only)
   build-macos-arm64:
-    name: Build macOS ARM64
+    name: Build macOS ARM64 Backend
     runs-on: macos-14
     needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install backend dependencies
+        run: cd backend && bun install
+
+      - name: Build backend sidecar
+        run: |
+          mkdir -p src-tauri/binaries
+          cd backend
+          bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
+
+      - name: Upload ARM64 backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-arm64
+          path: src-tauri/binaries/backend-aarch64-apple-darwin
+          if-no-files-found: error
+
+  # Build for macOS Intel (backend only)
+  build-macos-intel:
+    name: Build macOS Intel Backend
+    runs-on: macos-14
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install backend dependencies
+        run: cd backend && bun install
+
+      - name: Build backend sidecar
+        run: |
+          mkdir -p src-tauri/binaries
+          cd backend
+          bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
+
+      - name: Upload Intel backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-intel
+          path: src-tauri/binaries/backend-x86_64-apple-darwin
+          if-no-files-found: error
+
+  # Build Universal macOS App
+  build-macos-universal:
+    name: Build macOS Universal App
+    runs-on: macos-14
+    needs: [build-macos-arm64, build-macos-intel]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,33 +130,86 @@ jobs:
       - name: Install frontend dependencies
         run: bun install
 
-      - name: Install backend dependencies
-        run: cd backend && bun install
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Setup Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-          shared-key: macos-arm64
+          shared-key: macos-universal
 
-      - name: Build backend sidecar
+      - name: Download ARM64 backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-arm64
+          path: src-tauri/binaries
+
+      - name: Download Intel backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-intel
+          path: src-tauri/binaries
+
+      - name: Make binaries executable
         run: |
-          cd backend
-          bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile ../src-tauri/binaries/backend-aarch64-apple-darwin
+          chmod +x src-tauri/binaries/backend-aarch64-apple-darwin
+          chmod +x src-tauri/binaries/backend-x86_64-apple-darwin
+          ls -la src-tauri/binaries/
 
-      - name: Build Tauri app
+      - name: Build Tauri app (ARM64)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --target aarch64-apple-darwin
 
-      - name: Upload artifacts
+      - name: Build Tauri app (Intel)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target x86_64-apple-darwin
+
+      - name: Create Universal Binary
+        run: |
+          # Create universal binary using lipo
+          lipo -create \
+            src-tauri/binaries/backend-aarch64-apple-darwin \
+            src-tauri/binaries/backend-x86_64-apple-darwin \
+            -output src-tauri/binaries/backend-universal-apple-darwin
+
+          # Verify universal binary
+          lipo -info src-tauri/binaries/backend-universal-apple-darwin
+
+          # Replace the architecture-specific backends with the universal one
+          # named as 'backend' which is what lib.rs expects in production
+          cp src-tauri/binaries/backend-universal-apple-darwin src-tauri/binaries/backend
+          ls -la src-tauri/binaries/
+
+      - name: Copy backend to both app bundles
+        run: |
+          # Copy universal backend to both ARM64 and Intel app bundles
+          ARM64_APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/"
+          INTEL_APP="src-tauri/target/x86_64-apple-darwin/release/bundle/macos/rss-reader.app/Contents/MacOS/"
+
+          if [ -d "$ARM64_APP" ]; then
+            cp src-tauri/binaries/backend "$ARM64_APP/backend"
+            chmod +x "$ARM64_APP/backend"
+            echo "Copied backend to ARM64 app"
+            ls -la "$ARM64_APP/"
+          fi
+
+          if [ -d "$INTEL_APP" ]; then
+            cp src-tauri/binaries/backend "$INTEL_APP/backend"
+            chmod +x "$INTEL_APP/backend"
+            echo "Copied backend to Intel app"
+            ls -la "$INTEL_APP/"
+          fi
+
+      - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macOS-ARM64
@@ -105,50 +218,7 @@ jobs:
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
           if-no-files-found: ignore
 
-  # Build for macOS Intel
-  build-macos-intel:
-    name: Build macOS Intel
-    runs-on: macos-14
-    needs: check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install frontend dependencies
-        run: bun install
-
-      - name: Install backend dependencies
-        run: cd backend && bun install
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-
-      - name: Setup Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-          shared-key: macos-intel
-
-      - name: Build backend sidecar
-        run: |
-          cd backend
-          bun build src/index.ts --compile --target=bun-darwin-x64 --outfile ../src-tauri/binaries/backend-x86_64-apple-darwin
-
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: --target x86_64-apple-darwin
-
-      - name: Upload artifacts
+      - name: Upload Intel artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macOS-Intel
@@ -278,7 +348,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-macos-arm64, build-macos-intel, build-windows, build-linux]
+    needs: [build-macos-universal, build-windows, build-linux]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write

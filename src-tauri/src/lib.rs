@@ -23,6 +23,13 @@ fn get_backend_port(state: tauri::State<AppState>) -> Result<u16, String> {
 }
 
 fn get_sidecar_path(_app: &tauri::AppHandle) -> PathBuf {
+    // Get the directory where the current executable is located
+    let exe_dir = std::env::current_exe()
+        .expect("failed to get current executable path")
+        .parent()
+        .expect("failed to get executable directory")
+        .to_path_buf();
+
     // In dev mode, use the binary from the source tree with target triple
     if cfg!(dev) {
         let binary_name = if cfg!(target_os = "macos") {
@@ -44,18 +51,50 @@ fn get_sidecar_path(_app: &tauri::AppHandle) -> PathBuf {
             .join(binary_name);
     }
 
-    // In production, externalBin bundles the binary as just "backend"
-    // in the same directory as the main executable (Contents/MacOS/ on macOS)
+    // In production, try multiple possible locations and naming conventions
     let binary_name = if cfg!(target_os = "windows") {
         "backend.exe"
     } else {
         "backend"
     };
-    std::env::current_exe()
-        .expect("failed to get current executable path")
-        .parent()
-        .expect("failed to get executable directory")
-        .join(binary_name)
+
+    // Primary location: same directory as the main executable
+    let primary_path = exe_dir.join(&binary_name);
+    if primary_path.exists() {
+        return primary_path;
+    }
+
+    // Fallback: check for platform-specific target triple naming (Tauri externalBin style)
+    let target_binary = if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "backend-aarch64-apple-darwin"
+        } else {
+            "backend-x86_64-apple-darwin"
+        }
+    } else if cfg!(target_os = "windows") {
+        "backend-x86_64-pc-windows-msvc.exe"
+    } else if cfg!(target_os = "linux") {
+        "backend-x86_64-unknown-linux-gnu"
+    } else {
+        "backend"
+    };
+
+    let target_path = exe_dir.join(target_binary);
+    if target_path.exists() {
+        return target_path;
+    }
+
+    // For macOS .app bundles, check Contents/MacOS/ directory
+    #[cfg(target_os = "macos")]
+    {
+        let macos_dir = exe_dir.join("backend");
+        if macos_dir.exists() {
+            return macos_dir;
+        }
+    }
+
+    // Return primary path even if it doesn't exist (will fail with clear error later)
+    primary_path
 }
 
 fn start_backend(
@@ -73,10 +112,7 @@ fn start_backend(
         .map_err(|e| format!("Failed to start backend sidecar: {}", e))?;
 
     // Read port from stdout
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or("Failed to capture stdout")?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let reader = BufReader::new(stdout);
 
     let (tx, rx) = std::sync::mpsc::channel::<Result<u16, String>>();
@@ -87,11 +123,7 @@ fn start_backend(
             if let Ok(line) = line {
                 eprintln!("[Backend] {}", line);
                 if line.starts_with("PORT:") {
-                    if let Ok(port) = line
-                        .trim_start_matches("PORT:")
-                        .trim()
-                        .parse::<u16>()
-                    {
+                    if let Ok(port) = line.trim_start_matches("PORT:").trim().parse::<u16>() {
                         *port_mutex.lock().unwrap() = Some(port);
                         eprintln!("[Sidecar] Backend started on port: {}", port);
                         let _ = tx.send(Ok(port));
@@ -134,7 +166,10 @@ fn restart_backend(app: &tauri::AppHandle, state: &AppState) -> Result<u16, Stri
         return Err("Backend restart limit exceeded".to_string());
     }
 
-    eprintln!("[Sidecar] Restarting backend (attempt {})...", *restart_count);
+    eprintln!(
+        "[Sidecar] Restarting backend (attempt {})...",
+        *restart_count
+    );
     stop_backend(state);
 
     // Wait a bit before restarting
@@ -154,9 +189,7 @@ fn monitor_backend(app: tauri::AppHandle, state: AppState) {
                 .lock()
                 .unwrap()
                 .as_mut()
-                .map(|child| {
-                    matches!(child.try_wait(), Ok(None))
-                })
+                .map(|child| matches!(child.try_wait(), Ok(None)))
                 .unwrap_or(false);
 
             if !is_running {
