@@ -109,31 +109,63 @@ export const api = {
       if (!response.ok) throw new Error("Failed to delete feed");
     },
 
-    refresh: async (id: string): Promise<{ count: number }> => {
+    refresh: async (
+      id: string,
+    ): Promise<{
+      success: boolean;
+      count: number;
+      total?: number;
+      title?: string;
+      error?: string;
+    }> => {
       const baseUrl = await getApiBaseUrl();
       const response = await fetch(`${baseUrl}/api/feeds/${id}/refresh`, {
         method: "POST",
       });
-      if (!response.ok) throw new Error("Failed to refresh feed");
-      return response.json();
+      const data = await response.json();
+      if (!response.ok) {
+        return {
+          success: false,
+          count: 0,
+          error: data.error || "Failed to refresh feed",
+        };
+      }
+      return { ...data, success: true };
     },
 
     refreshAll: async (): Promise<{ count: number; errors?: string[] }> => {
       const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/feeds/refresh-all`, {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        // Handle database permission error
-        if (data.code === "DB_NOT_INITIALIZED") {
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      try {
+        const response = await fetch(`${baseUrl}/api/feeds/refresh-all`, {
+          method: "POST",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        const data = await response.json();
+        if (!response.ok) {
+          // Handle database permission error
+          if (data.code === "DB_NOT_INITIALIZED") {
+            throw new Error(
+              "Database permission required. Please grant access to Application Support folder and try again.",
+            );
+          }
+          throw new Error(data.error || "Failed to refresh all feeds");
+        }
+        return data;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === "AbortError") {
           throw new Error(
-            "Database permission required. Please grant access to Application Support folder and try again.",
+            "Refresh request timed out (30s). Some feeds may be slow to respond.",
           );
         }
-        throw new Error(data.error || "Failed to refresh all feeds");
+        throw error;
       }
-      return data;
     },
   },
 
