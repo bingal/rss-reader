@@ -42,28 +42,24 @@ cd backend && npm install && cd ..
 cd backend && bun install && cd ..
 
 # Run in development mode (frontend only)
-npm run dev
+bun run dev
 
 # Run with Tauri desktop app
-npm run tauri dev
+bun run tauri dev
 
 # Build for production
-npm run build
+bun run build
 
 # Run tests
-npm run test:run
+bun run test:run
 ```
 
 ### Desktop App
 
 ```bash
 # Development mode (with hot reload)
-npm run tauri dev
-# Or with Bun
 bun run tauri dev
 
-# Build production app
-npm run tauri build
 # Or with Bun
 bun run tauri build
 
