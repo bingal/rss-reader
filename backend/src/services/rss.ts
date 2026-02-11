@@ -14,7 +14,7 @@ const parser = new Parser({
   timeout: 10000, // 10 seconds timeout
 });
 
-const FETCH_TIMEOUT = 15000; // 15 seconds timeout for fetch
+const FETCH_TIMEOUT = 10000; // 10 seconds timeout for fetch
 
 async function fetchWithTimeout(
   url: string,

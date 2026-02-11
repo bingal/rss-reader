@@ -117,16 +117,20 @@ app.post("/:id/refresh", async (c) => {
   try {
     const db = getDatabase();
 
-    // Get feed URL
-    const query = db.query("SELECT url FROM feeds WHERE id = ?");
-    const feed = query.get(id) as { url: string } | null;
+    // Get feed info
+    const query = db.query("SELECT url, title FROM feeds WHERE id = ?");
+    const feed = query.get(id) as { url: string; title: string } | null;
 
     if (!feed) {
       return c.json({ error: "Feed not found" }, 404);
     }
 
-    // Fetch articles
-    const articles = await fetchFeed(feed.url);
+    // Fetch articles with 5s timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout")), 5000);
+    });
+
+    const articles = await Promise.race([fetchFeed(feed.url), timeoutPromise]);
     const now = Math.floor(Date.now() / 1000);
 
     // Get existing article links
@@ -164,10 +168,26 @@ app.post("/:id/refresh", async (c) => {
 
     db.query("UPDATE feeds SET updated_at = ? WHERE id = ?").run(now, id);
 
-    return c.json({ count: savedCount });
+    return c.json({
+      success: true,
+      count: savedCount,
+      total: articles.length,
+      title: feed.title,
+    });
   } catch (error: any) {
+    const db = getDatabase();
+    const feedQuery = db.query("SELECT title FROM feeds WHERE id = ?");
+    const feedInfo = feedQuery.get(id) as { title: string } | null;
+
     console.error("[Feeds] Failed to refresh feed:", error.message);
-    return c.json({ error: error.message || "Failed to refresh feed" }, 400);
+    return c.json(
+      {
+        success: false,
+        error: error.message || "Failed to refresh feed",
+        title: feedInfo?.title || "Unknown",
+      },
+      400,
+    );
   }
 });
 
@@ -179,8 +199,11 @@ async function refreshSingleFeed(
   db: any,
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
-    // Fetch articles with individual timeout
-    const articles = await fetchFeed(url);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Feed refresh timeout (5s)")), 5000);
+    });
+
+    const articles = await Promise.race([fetchFeed(url), timeoutPromise]);
     const now = Math.floor(Date.now() / 1000);
 
     const linksQuery = db.query("SELECT link FROM articles WHERE feed_id = ?");
@@ -240,21 +263,29 @@ app.post("/refresh-all", async (c) => {
 
     console.log(`[Feeds] Found ${feeds.length} feeds to refresh`);
 
+    // Process feeds with concurrency limit (5 at a time) for speed
+    const CONCURRENCY = 5;
     let totalCount = 0;
     const errors: string[] = [];
 
-    // Process feeds sequentially to avoid overwhelming the system
-    for (const feed of feeds) {
-      console.log(`[Feeds] Refreshing feed: ${feed.title}`);
-      const result = await refreshSingleFeed(feed.id, feed.url, feed.title, db);
+    for (let i = 0; i < feeds.length; i += CONCURRENCY) {
+      const batch = feeds.slice(i, i + CONCURRENCY);
+      console.log(
+        `[Feeds] Processing batch ${Math.floor(i / CONCURRENCY) + 1}/${Math.ceil(feeds.length / CONCURRENCY)}`,
+      );
 
-      if (result.success) {
-        totalCount += result.count;
-        console.log(
-          `[Feeds] Refreshed feed '${feed.title}': ${result.count} new articles`,
-        );
-      } else {
-        errors.push(result.error!);
+      const results = await Promise.all(
+        batch.map((feed) =>
+          refreshSingleFeed(feed.id, feed.url, feed.title, db),
+        ),
+      );
+
+      for (const result of results) {
+        if (result.success) {
+          totalCount += result.count;
+        } else {
+          errors.push(result.error!);
+        }
       }
     }
 

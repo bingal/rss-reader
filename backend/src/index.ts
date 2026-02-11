@@ -58,6 +58,17 @@ if (port === 0) {
   console.log(`PORT:${server.port}`);
 }
 
+// Global error handlers to prevent crashes
+process.on("uncaughtException", (error) => {
+  console.error("[Server] Uncaught Exception:", error);
+  // Don't exit - keep the server running
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Server] Unhandled Rejection at:", promise, "reason:", reason);
+  // Don't exit - keep the server running
+});
+
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n👋 Shutting down gracefully...");
