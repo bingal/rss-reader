@@ -21,5 +21,6 @@
     }
   },
   "include": ["src"],
+  "exclude": ["node_modules", "dist", "backend", "src/bun"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
