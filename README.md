@@ -71,14 +71,14 @@ Built with **ElectroBun** - a modern desktop app framework:
 
 ### Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Next article |
-| `k` / `↑` | Previous article |
-| `o` | Open in browser |
-| `r` | Refresh all feeds |
-| `m` | Toggle theme |
-| `s` | Toggle star |
+| Key       | Action            |
+| --------- | ----------------- |
+| `j` / `↓` | Next article      |
+| `k` / `↑` | Previous article  |
+| `o`       | Open in browser   |
+| `r`       | Refresh all feeds |
+| `m`       | Toggle theme      |
+| `s`       | Toggle star       |
 
 ## 🛠️ Development
 

@@ -12,7 +12,7 @@ async function getRPC(): Promise<any> {
       try {
         // Dynamic import - only works in ElectroBun environment
         const { createRPC } = await import("electrobun/view");
-        
+
         // Create RPC client
         const rpc = createRPC();
         console.log("[API] ElectroBun RPC connected");
@@ -35,7 +35,12 @@ export const api = {
       return await rpc["feeds:getAll"]();
     },
 
-    add: async (data: { title: string; url: string; description?: string; category?: string }): Promise<Feed> => {
+    add: async (data: {
+      title: string;
+      url: string;
+      description?: string;
+      category?: string;
+    }): Promise<Feed> => {
       const rpc = await getRPC();
       if (!rpc) throw new Error("RPC not available");
       return await rpc["feeds:add"](data);
@@ -61,7 +66,12 @@ export const api = {
   },
 
   articles: {
-    fetch: async (params: { feedId?: string; filter?: ArticleFilter; limit?: number; offset?: number }): Promise<Article[]> => {
+    fetch: async (params: {
+      feedId?: string;
+      filter?: ArticleFilter;
+      limit?: number;
+      offset?: number;
+    }): Promise<Article[]> => {
       const rpc = await getRPC();
       if (!rpc) throw new Error("RPC not available");
       return await rpc["articles:fetch"](params);
@@ -95,7 +105,10 @@ export const api = {
   },
 
   translation: {
-    translate: async (text: string, targetLang: string = "zh"): Promise<{ translatedText: string }> => {
+    translate: async (
+      text: string,
+      targetLang: string = "zh",
+    ): Promise<{ translatedText: string }> => {
       const rpc = await getRPC();
       if (!rpc) throw new Error("RPC not available");
       return await rpc["translation:translate"]({ text, targetLang });

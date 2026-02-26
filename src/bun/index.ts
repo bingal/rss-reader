@@ -1,4 +1,8 @@
-import { BrowserWindow, defineElectrobunRPC, type ElectrobunRPCSchema } from "electrobun/bun";
+import {
+  BrowserWindow,
+  defineElectrobunRPC,
+  type ElectrobunRPCSchema,
+} from "electrobun/bun";
 import { initializeDatabase } from "../../backend/src/db/connection";
 import feedsHandlers from "../../backend/src/routes/feeds";
 import articlesHandlers from "../../backend/src/routes/articles";
@@ -23,18 +27,20 @@ const rpc = defineElectrobunRPC<RSSReaderSchema, "bun">({
       "feeds:delete": async (params) => feedsHandlers.deleteFeed(params),
       "feeds:refresh": async (params) => feedsHandlers.refresh(params),
       "feeds:refreshAll": async () => feedsHandlers.refreshAll(),
-      
+
       // Articles
       "articles:fetch": async (params) => articlesHandlers.fetch(params),
       "articles:markRead": async (params) => articlesHandlers.markRead(params),
-      "articles:toggleStarred": async (params) => articlesHandlers.toggleStarred(params),
-      
+      "articles:toggleStarred": async (params) =>
+        articlesHandlers.toggleStarred(params),
+
       // Settings
       "settings:get": async (params) => settingsHandlers.get(params),
       "settings:set": async (params) => settingsHandlers.set(params),
-      
+
       // Translation
-      "translation:translate": async (params) => translationHandlers.translate(params),
+      "translation:translate": async (params) =>
+        translationHandlers.translate(params),
       "translation:save": async (params) => translationHandlers.save(params),
       "translation:get": async (params) => translationHandlers.get(params),
     },
@@ -45,9 +51,9 @@ console.log("[RPC] RSS Reader RPC handlers registered");
 
 // Determine the frontend URL
 const isDev = process.env.NODE_ENV !== "production";
-const frontendUrl = isDev 
-  ? "http://localhost:5173"  // Vite default dev port
-  : "http://localhost:4173";  // Vite preview port
+const frontendUrl = isDev
+  ? "http://localhost:5173" // Vite default dev port
+  : "http://localhost:4173"; // Vite preview port
 
 console.log(`[Electrobun] Opening RSS Reader at ${frontendUrl}`);
 
@@ -55,7 +61,7 @@ console.log(`[Electrobun] Opening RSS Reader at ${frontendUrl}`);
 new BrowserWindow({
   title: "RSS Reader",
   url: frontendUrl,
-  rpc: rpc,  // Pass RPC to enable typed communication
+  rpc: rpc, // Pass RPC to enable typed communication
 });
 
 console.log(`[Electrobun] Window opened with RPC enabled`);

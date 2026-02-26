@@ -153,14 +153,14 @@ const saved = await api.translation.get(articleId);
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Next article |
-| `k` / `↑` | Previous article |
-| `o` / `Enter` | Open in browser |
-| `r` | Refresh all feeds |
-| `m` | Toggle theme |
-| `s` | Toggle star |
+| Key           | Action            |
+| ------------- | ----------------- |
+| `j` / `↓`     | Next article      |
+| `k` / `↑`     | Previous article  |
+| `o` / `Enter` | Open in browser   |
+| `r`           | Refresh all feeds |
+| `m`           | Toggle theme      |
+| `s`           | Toggle star       |
 
 ## Common Development Tasks
 
