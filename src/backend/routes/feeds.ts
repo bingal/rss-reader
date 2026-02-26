@@ -1,8 +1,12 @@
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
-import { getDatabase, resetDatabase, getDatabaseStatus } from "@/db/connection";
-import { fetchFeed } from "@/services/rss";
-import type { Feed } from "@/types";
+import {
+  getDatabase,
+  resetDatabase,
+  getDatabaseStatus,
+} from "../db/connection";
+import { fetchFeed } from "../services/rss";
+import type { Feed } from "../types";
 
 const app = new Hono();
 

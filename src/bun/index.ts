@@ -1,21 +1,14 @@
-import {
-  BrowserWindow,
-  defineElectrobunRPC,
-  type ElectrobunRPCSchema,
-} from "electrobun/bun";
-import { initializeDatabase } from "../../backend/src/db/connection";
-import feedsHandlers from "../../backend/src/routes/feeds";
-import articlesHandlers from "../../backend/src/routes/articles";
-import settingsHandlers from "../../backend/src/routes/settings";
-import translationHandlers from "../../backend/src/routes/translation";
-import type { RSSReaderSchema } from "./shared/rpc-schema";
+import { BrowserWindow, defineElectrobunRPC } from "electrobun/bun";
+import { initializeDatabase } from "../backend/db/connection";
+import feedsHandlers from "../backend/routes/feeds";
+import articlesHandlers from "../backend/routes/articles";
+import settingsHandlers from "../backend/routes/settings";
+import translationHandlers from "../backend/routes/translation";
+import type { RSSReaderSchema } from "../shared/rpc-schema";
 
 // Initialize database first
 console.log("[Server] Initializing database...");
 initializeDatabase();
-
-// Define RPC schema and handlers
-type BunRequests = RSSReaderSchema["bun"]["requests"];
 
 // Create RPC with handlers
 const rpc = defineElectrobunRPC<RSSReaderSchema, "bun">({
@@ -51,9 +44,7 @@ console.log("[RPC] RSS Reader RPC handlers registered");
 
 // Determine the frontend URL
 const isDev = process.env.NODE_ENV !== "production";
-const frontendUrl = isDev
-  ? "http://localhost:5173" // Vite default dev port
-  : "http://localhost:4173"; // Vite preview port
+const frontendUrl = isDev ? "http://localhost:5173" : "http://localhost:4173";
 
 console.log(`[Electrobun] Opening RSS Reader at ${frontendUrl}`);
 
@@ -61,7 +52,7 @@ console.log(`[Electrobun] Opening RSS Reader at ${frontendUrl}`);
 new BrowserWindow({
   title: "RSS Reader",
   url: frontendUrl,
-  rpc: rpc, // Pass RPC to enable typed communication
+  rpc: rpc,
 });
 
 console.log(`[Electrobun] Window opened with RPC enabled`);

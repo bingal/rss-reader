@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { getDatabase } from "@/db/connection";
-import type { Article, ArticleFilter } from "@/types";
-import { htmlToMarkdown } from "@/utils/htmlToMarkdown";
+import { getDatabase } from "../db/connection";
+import type { Article, ArticleFilter } from "../types";
+import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 
 const app = new Hono();
 

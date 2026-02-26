@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { getDatabase } from "@/db/connection";
-import { translateText } from "@/services/translate";
-import { htmlToMarkdown } from "@/utils/htmlToMarkdown";
+import { getDatabase } from "../db/connection";
+import { translateText } from "../services/translate";
+import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 
 const app = new Hono();
 
