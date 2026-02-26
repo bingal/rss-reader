@@ -3,13 +3,8 @@ name: Build Multi-Platform RSS Reader App
 on:
   push:
     branches: [main]
-    paths:
-      - "**.ts"
-      - "**.tsx"
-      - "**.json"
-      - "**.js"
-      - "**.html"
-      - ".github/workflows/**"
+    tags:
+      - "v*"
   pull_request:
     branches: [main]
   release:
