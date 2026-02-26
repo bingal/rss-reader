@@ -57,23 +57,23 @@ jobs:
         run: bun install
 
       - name: Build with ElectroBun
-        run: bun run build:stable
+        run: bunx electrobun build
 
       - name: Find DMG artifact
-        id: dmg
+        id: find-dmg
         run: |
-          DMG=$(find artifacts -name "*.dmg" | head -1)
+          DMG=$(find artifacts -name "*macos-arm64*.dmg" | head -1)
           echo "dmg=$DMG" >> $GITHUB_OUTPUT
 
-      - name: Rename artifact
+      - name: Rename for release
         run: |
-          mv "${{ steps.dmg.outputs.dmg }}" "artifacts/RSSReader-v${{ vars.VERSION }}-macos-arm64.dmg"
+          cp ${{ steps.find-dmg.outputs.dmg }} artifacts/RSSReader-macos-arm64.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-macos-arm64
-          path: artifacts/RSSReader-v${{ vars.VERSION }}-macos-arm64.dmg
+          path: artifacts/RSSReader-macos-arm64.dmg
           if-no-files-found: error
 
   # Build for macOS x64 (Intel)
@@ -94,23 +94,23 @@ jobs:
         run: bun install
 
       - name: Build with ElectroBun
-        run: bun run build:stable
+        run: bunx electrobun build
 
       - name: Find DMG artifact
-        id: dmg
+        id: find-dmg
         run: |
-          DMG=$(find artifacts -name "*.dmg" | head -1)
+          DMG=$(find artifacts -name "*macos-x64*.dmg" | head -1)
           echo "dmg=$DMG" >> $GITHUB_OUTPUT
 
-      - name: Rename artifact
+      - name: Rename for release
         run: |
-          mv "${{ steps.dmg.outputs.dmg }}" "artifacts/RSSReader-v${{ vars.VERSION }}-macos-x64.dmg"
+          cp ${{ steps.find-dmg.outputs.dmg }} artifacts/RSSReader-macos-x64.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-macos-x64
-          path: artifacts/RSSReader-v${{ vars.VERSION }}-macos-x64.dmg
+          path: artifacts/RSSReader-macos-x64.dmg
           if-no-files-found: error
 
   # Build for Windows
@@ -131,23 +131,23 @@ jobs:
         run: bun install
 
       - name: Build with ElectroBun
-        run: bun run build:stable
+        run: bunx electrobun build
 
       - name: Find ZIP artifact
-        id: zip
+        id: find-zip
         run: |
-          ZIP=$(find artifacts -name "*.zip" | head -1)
+          ZIP=$(find artifacts -name "*win-x64*.zip" | head -1)
           echo "zip=$ZIP" >> $GITHUB_OUTPUT
 
-      - name: Rename artifact
+      - name: Rename for release
         run: |
-          mv "${{ steps.zip.outputs.zip }}" "artifacts/RSSReader-v${{ vars.VERSION }}-win-x64.zip"
+          cp ${{ steps.find-zip.outputs.zip }} artifacts/RSSReader-win-x64.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-windows
-          path: artifacts/RSSReader-v${{ vars.VERSION }}-win-x64.zip
+          path: artifacts/RSSReader-win-x64.zip
           if-no-files-found: error
 
   # Build for Linux
@@ -168,23 +168,23 @@ jobs:
         run: bun install
 
       - name: Build with ElectroBun
-        run: bun run build:stable
+        run: bunx electrobun build
 
       - name: Find tar.gz artifact
-        id: tar
+        id: find-tar
         run: |
-          TAR=$(find artifacts -name "*.tar.gz" | head -1)
+          TAR=$(find artifacts -name "*linux-x64*.tar.gz" | head -1)
           echo "tar=$TAR" >> $GITHUB_OUTPUT
 
-      - name: Rename artifact
+      - name: Rename for release
         run: |
-          mv "${{ steps.tar.outputs.tar }}" "artifacts/RSSReader-v${{ vars.VERSION }}-linux-x64.tar.gz"
+          cp ${{ steps.find-tar.outputs.tar }} artifacts/RSSReader-linux-x64.tar.gz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-linux
-          path: artifacts/RSSReader-v${{ vars.VERSION }}-linux-x64.tar.gz
+          path: artifacts/RSSReader-linux-x64.tar.gz
           if-no-files-found: error
 
   # Create release on tag
@@ -247,8 +247,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: RSS Reader v${{ steps.version.outputs.version }}
           files: |
-            release/*.dmg
-            release/*.zip
-            release/*.tar.gz
+            release/RSSReader-macos-arm64.dmg
+            release/RSSReader-macos-x64.dmg
+            release/RSSReader-win-x64.zip
+            release/RSSReader-linux-x64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
