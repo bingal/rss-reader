@@ -190,7 +190,7 @@ jobs:
           draft: false
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
-          name: RSS Reader v${{ steps.version.outputs.version }}
+          name: RSS Reader ${{ github.ref_name }}
           files: |
             release/rss-reader-macos
             release/rss-reader-windows.exe

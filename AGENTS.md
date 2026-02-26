@@ -146,6 +146,27 @@ bun run format && bun run format:check && bun run lint && bunx tsc --noEmit && b
 
 If any of these fail, fix the issues before committing. The CI/CD pipeline will run the same checks and fail if they don't pass.
 
+## 发布新版本
+
+**重要**: 发布新版本前，必须先更新 `package.json` 中的版本号，使其与 git tag 匹配。
+
+```bash
+# 1. 更新版本号 (例如从 0.1.12 升级到 0.2.0)
+npm version 0.2.0 --no-git-tag-version
+
+# 2. 提交更改
+git add -A && git commit -m "release: v0.2.0"
+
+# 3. 推送代码并创建 tag
+git tag v0.2.0
+git push origin main && git push origin v0.2.0
+```
+
+**注意**: 
+- Git tag 名称必须以 `v` 开头 (如 `v0.2.0`)
+- `package.json` 中的版本号不需要 `v` 前缀 (如 `0.2.0`)
+- GitHub Actions 会自动构建并创建 Release
+
 ## RPC API Reference
 
 All API calls go through ElectroBun RPC:
