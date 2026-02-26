@@ -56,72 +56,29 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build ElectroBun app
+      - name: Build with ElectroBun
+        run: bun run build:stable
+
+      - name: Find DMG artifact
+        id: dmg
         run: |
-          bun build src/bun/index.ts --compile --target=bun-darwin-arm64 --outfile dist/RSS-Reader
+          DMG=$(find artifacts -name "*.dmg" | head -1)
+          echo "dmg=$DMG" >> $GITHUB_OUTPUT
 
-      - name: Create .app bundle
+      - name: Rename artifact
         run: |
-          mkdir -p "RSS Reader.app/Contents/MacOS"
-          cp dist/RSS-Reader "RSS Reader.app/Contents/MacOS/RSS-Reader"
-          chmod +x "RSS Reader.app/Contents/MacOS/RSS-Reader"
-
-          # Create Info.plist
-          cat > "RSS Reader.app/Contents/Info.plist" << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>RSS-Reader</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.rssreader.app</string>
-            <key>CFBundleName</key>
-            <string>RSS Reader</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>0.2.2</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>LSMinimumSystemVersion</key>
-            <string>10.15</string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Install create-dmg
-        run: brew install create-dmg
-
-      - name: Create DMG
-        run: |
-          create-dmg \
-            --volname "RSS Reader" \
-            --volicon "resources/icon.icns" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "RSS Reader.app" 150 185 \
-            --hide-extension "RSS Reader.app" \
-            --app-drop-link 450 185 \
-            "dist/RSS-Reader-v0.2.2-arm64.dmg" \
-            "RSS Reader.app" || true
-
-          # Fallback if above fails
-          if [ ! -f "dist/RSS-Reader-v0.2.2-arm64.dmg" ]; then
-            create-dmg "dist/RSS-Reader-v0.2.2-arm64.dmg" "RSS Reader.app"
-          fi
+          mv "${{ steps.dmg.outputs.dmg }}" "artifacts/RSSReader-v${{ vars.VERSION }}-macos-arm64.dmg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-macos-arm64
-          path: dist/RSS-Reader-v0.2.2-arm64.dmg
+          path: artifacts/RSSReader-v${{ vars.VERSION }}-macos-arm64.dmg
           if-no-files-found: error
 
-  # Build for macOS Intel
-  build-macos-amd64:
-    name: Build macOS Intel
+  # Build for macOS x64 (Intel)
+  build-macos-x64:
+    name: Build macOS x64
     runs-on: macos-14
     needs: check
     steps:
@@ -136,51 +93,24 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build ElectroBun app
+      - name: Build with ElectroBun
+        run: bun run build:stable
+
+      - name: Find DMG artifact
+        id: dmg
         run: |
-          bun build src/bun/index.ts --compile --target=bun-darwin-x64 --outfile dist/RSS-Reader
+          DMG=$(find artifacts -name "*.dmg" | head -1)
+          echo "dmg=$DMG" >> $GITHUB_OUTPUT
 
-      - name: Create .app bundle
+      - name: Rename artifact
         run: |
-          mkdir -p "RSS Reader.app/Contents/MacOS"
-          cp dist/RSS-Reader "RSS Reader.app/Contents/MacOS/RSS-Reader"
-          chmod +x "RSS Reader.app/Contents/MacOS/RSS-Reader"
-
-          cat > "RSS Reader.app/Contents/Info.plist" << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>RSS-Reader</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.rssreader.app</string>
-            <key>CFBundleName</key>
-            <string>RSS Reader</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>0.2.2</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>LSMinimumSystemVersion</key>
-            <string>10.15</string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Install create-dmg
-        run: brew install create-dmg
-
-      - name: Create DMG
-        run: |
-          create-dmg "dist/RSS-Reader-v0.2.2-amd64.dmg" "RSS Reader.app"
+          mv "${{ steps.dmg.outputs.dmg }}" "artifacts/RSSReader-v${{ vars.VERSION }}-macos-x64.dmg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rss-reader-macos-amd64
-          path: dist/RSS-Reader-v0.2.2-amd64.dmg
+          name: rss-reader-macos-x64
+          path: artifacts/RSSReader-v${{ vars.VERSION }}-macos-x64.dmg
           if-no-files-found: error
 
   # Build for Windows
@@ -200,15 +130,24 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build ElectroBun app
+      - name: Build with ElectroBun
+        run: bun run build:stable
+
+      - name: Find ZIP artifact
+        id: zip
         run: |
-          bun build src/bun/index.ts --compile --target=bun-windows-x64 --outfile dist/RSS-Reader.exe
+          ZIP=$(find artifacts -name "*.zip" | head -1)
+          echo "zip=$ZIP" >> $GITHUB_OUTPUT
+
+      - name: Rename artifact
+        run: |
+          mv "${{ steps.zip.outputs.zip }}" "artifacts/RSSReader-v${{ vars.VERSION }}-win-x64.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-windows
-          path: dist/RSS-Reader.exe
+          path: artifacts/RSSReader-v${{ vars.VERSION }}-win-x64.zip
           if-no-files-found: error
 
   # Build for Linux
@@ -228,23 +167,31 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build ElectroBun app
+      - name: Build with ElectroBun
+        run: bun run build:stable
+
+      - name: Find tar.gz artifact
+        id: tar
         run: |
-          bun build src/bun/index.ts --compile --target=bun-linux-x64 --outfile dist/RSS-Reader
-          chmod +x dist/RSS-Reader
+          TAR=$(find artifacts -name "*.tar.gz" | head -1)
+          echo "tar=$TAR" >> $GITHUB_OUTPUT
+
+      - name: Rename artifact
+        run: |
+          mv "${{ steps.tar.outputs.tar }}" "artifacts/RSSReader-v${{ vars.VERSION }}-linux-x64.tar.gz"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rss-reader-linux
-          path: dist/RSS-Reader
+          path: artifacts/RSSReader-v${{ vars.VERSION }}-linux-x64.tar.gz
           if-no-files-found: error
 
   # Create release on tag
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-macos-arm64, build-macos-amd64, build-windows, build-linux]
+    needs: [build-macos-arm64, build-macos-x64, build-windows, build-linux]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -265,10 +212,10 @@ jobs:
           name: rss-reader-macos-arm64
           path: release
 
-      - name: Download macOS Intel artifact
+      - name: Download macOS x64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: rss-reader-macos-amd64
+          name: rss-reader-macos-x64
           path: release
 
       - name: Download Windows artifact
@@ -300,9 +247,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: RSS Reader v${{ steps.version.outputs.version }}
           files: |
-            release/RSS-Reader-v0.2.2-arm64.dmg
-            release/RSS-Reader-v0.2.2-amd64.dmg
-            release/RSS-Reader.exe
-            release/RSS-Reader
+            release/*.dmg
+            release/*.zip
+            release/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

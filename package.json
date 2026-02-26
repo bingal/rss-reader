@@ -8,6 +8,8 @@
     "dev:electron": "bun run src/bun/index.ts",
     "build": "vite build",
     "build:electron": "bun build src/bun/index.ts --compile --outfile dist/rss-reader",
+    "build:stable": "bun install && electrobun build",
+    "build:canary": "bun install && electrobun build --env=canary",
     "test": "vitest",
     "test:run": "vitest run",
     "format": "prettier --write .",
