@@ -57,10 +57,12 @@ jobs:
         run: bun install
 
       - name: Build ElectroBun app (ARM64)
-        run: bun build src/bun/index.ts --compile --target=bun-darwin-arm64 --outfile dist/rss-reader-arm64
+        run: |
+          bun build src/bun/index.ts --compile --target=bun-darwin-arm64 --outfile dist/rss-reader-arm64
 
       - name: Build ElectroBun app (Intel)
-        run: bun build src/bun/index.ts --compile --target=bun-darwin-x64 --outfile dist/rss-reader-intel
+        run: |
+          bun build src/bun/index.ts --compile --target=bun-darwin-x64 --outfile dist/rss-reader-intel
 
       - name: Create Universal Binary
         run: |
@@ -71,7 +73,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macOS
+          name: rss-reader-macos
           path: dist/rss-reader
           if-no-files-found: error
 
@@ -93,12 +95,13 @@ jobs:
         run: bun install
 
       - name: Build ElectroBun app
-        run: bun build src/bun/index.ts --compile --target=bun-windows-x64 --outfile dist/rss-reader.exe
+        run: |
+          bun build src/bun/index.ts --compile --target=bun-windows-x64 --outfile dist/rss-reader.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Windows
+          name: rss-reader-windows
           path: dist/rss-reader.exe
           if-no-files-found: error
 
@@ -120,16 +123,15 @@ jobs:
         run: bun install
 
       - name: Build ElectroBun app
-        run: bun build src/bun/index.ts --compile --target=bun-linux-x64 --outfile dist/rss-reader
-
-      - name: Make executable
-        run: chmod +x dist/rss-reader
+        run: |
+          bun build src/bun/index.ts --compile --target=bun-linux-x64 --outfile dist/rss-reader-linux
+          chmod +x dist/rss-reader-linux
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Linux
-          path: dist/rss-reader
+          name: rss-reader-linux
+          path: dist/rss-reader-linux
           if-no-files-found: error
 
   # Create release on tag
@@ -145,16 +147,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
       - name: Get version from package.json
         id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rss-reader-macos
+          path: release
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rss-reader-windows
+          path: release
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rss-reader-linux
+          path: release
+
+      - name: Rename files for release
+        run: |
+          cd release
+          mv rss-reader rss-reader-macos
+          mv rss-reader.exe rss-reader-windows.exe
+          mv rss-reader-linux rss-reader-linux
+          ls -la
 
       - name: Delete existing release if exists
         run: |
@@ -170,8 +193,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: RSS Reader v${{ steps.version.outputs.version }}
           files: |
-            artifacts/macOS/rss-reader
-            artifacts/Windows/rss-reader.exe
-            artifacts/Linux/rss-reader
+            release/rss-reader-macos
+            release/rss-reader-windows.exe
+            release/rss-reader-linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
