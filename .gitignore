@@ -28,12 +28,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tauri
-src-tauri/target
-/src-tauri/dist
-/src-tauri/.env
-src-tauri/gen
-src-tauri/binaries/
-
 # OS
 Thumbs.db
