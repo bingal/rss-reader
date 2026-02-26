@@ -1,53 +1,4 @@
-const API_BASE_URL_KEY = "rss_reader_api_base_url";
-
-let cachedApiBaseUrl: string | null = null;
-let portPromise: Promise<number> | null = null;
-
-export async function getApiBaseUrl(): Promise<string> {
-  if (cachedApiBaseUrl) {
-    return cachedApiBaseUrl;
-  }
-
-  // Check if we're in Tauri environment
-  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-    try {
-      // Only create one promise for getting the port
-      if (!portPromise) {
-        portPromise = (async () => {
-          const { invoke } = await import("@tauri-apps/api/core");
-          return await invoke<number>("get_backend_port");
-        })();
-      }
-
-      const port = await portPromise;
-      cachedApiBaseUrl = `http://localhost:${port}`;
-      console.log("[API] Using backend at:", cachedApiBaseUrl);
-      return cachedApiBaseUrl;
-    } catch (error) {
-      console.error("[API] Failed to get backend port from Tauri:", error);
-      // Retry after a short delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const port = await invoke<number>("get_backend_port");
-        cachedApiBaseUrl = `http://localhost:${port}`;
-        console.log(
-          "[API] Retry successful, using backend at:",
-          cachedApiBaseUrl,
-        );
-        return cachedApiBaseUrl;
-      } catch (retryError) {
-        console.error("[API] Retry failed:", retryError);
-      }
-    }
-  }
-
-  // Fallback to localStorage or default
-  const stored = localStorage.getItem(API_BASE_URL_KEY);
-  cachedApiBaseUrl = stored || "http://localhost:3456";
-  console.log("[API] Using fallback backend at:", cachedApiBaseUrl);
-  return cachedApiBaseUrl;
-}
+const API_BASE_URL = "http://localhost:3456";
 
 export interface Feed {
   id: string;
@@ -79,8 +30,7 @@ export type ArticleFilter = "all" | "unread" | "starred";
 export const api = {
   feeds: {
     getAll: async (): Promise<Feed[]> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/feeds`);
+      const response = await fetch(`${API_BASE_URL}/api/feeds`);
       if (!response.ok) throw new Error("Failed to fetch feeds");
       return response.json();
     },
@@ -91,8 +41,7 @@ export const api = {
       description?: string;
       category?: string;
     }): Promise<Feed> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/feeds`, {
+      const response = await fetch(`${API_BASE_URL}/api/feeds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -102,8 +51,7 @@ export const api = {
     },
 
     delete: async (id: string): Promise<void> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/feeds/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/feeds/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete feed");
@@ -118,8 +66,7 @@ export const api = {
       title?: string;
       error?: string;
     }> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/feeds/${id}/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/api/feeds/${id}/refresh`, {
         method: "POST",
       });
       const data = await response.json();
@@ -134,13 +81,11 @@ export const api = {
     },
 
     refreshAll: async (): Promise<{ count: number; errors?: string[] }> => {
-      const baseUrl = await getApiBaseUrl();
-
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
-        const response = await fetch(`${baseUrl}/api/feeds/refresh-all`, {
+        const response = await fetch(`${API_BASE_URL}/api/feeds/refresh-all`, {
           method: "POST",
           signal: controller.signal,
         });
@@ -148,7 +93,6 @@ export const api = {
 
         const data = await response.json();
         if (!response.ok) {
-          // Handle database permission error
           if (data.code === "DB_NOT_INITIALIZED") {
             throw new Error(
               "Database permission required. Please grant access to Application Support folder and try again.",
@@ -176,21 +120,19 @@ export const api = {
       limit?: number;
       offset?: number;
     }): Promise<Article[]> => {
-      const baseUrl = await getApiBaseUrl();
       const queryParams = new URLSearchParams();
       if (params.feedId) queryParams.set("feedId", params.feedId);
       if (params.filter) queryParams.set("filter", params.filter);
       if (params.limit) queryParams.set("limit", params.limit.toString());
       if (params.offset) queryParams.set("offset", params.offset.toString());
 
-      const response = await fetch(`${baseUrl}/api/articles?${queryParams}`);
+      const response = await fetch(`${API_BASE_URL}/api/articles?${queryParams}`);
       if (!response.ok) throw new Error("Failed to fetch articles");
       return response.json();
     },
 
     markRead: async (id: string, read: boolean): Promise<void> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/articles/${id}/read`, {
+      const response = await fetch(`${API_BASE_URL}/api/articles/${id}/read`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ read }),
@@ -199,8 +141,7 @@ export const api = {
     },
 
     toggleStarred: async (id: string, starred: boolean): Promise<void> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/articles/${id}/starred`, {
+      const response = await fetch(`${API_BASE_URL}/api/articles/${id}/starred`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ starred }),
@@ -211,15 +152,13 @@ export const api = {
 
   settings: {
     get: async (key: string): Promise<{ value: string | null }> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/settings/${key}`);
+      const response = await fetch(`${API_BASE_URL}/api/settings/${key}`);
       if (!response.ok) throw new Error("Failed to get setting");
       return response.json();
     },
 
     set: async (key: string, value: string): Promise<void> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/settings/${key}`, {
+      const response = await fetch(`${API_BASE_URL}/api/settings/${key}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
@@ -233,8 +172,7 @@ export const api = {
       text: string,
       targetLang: string = "zh",
     ): Promise<{ translatedText: string }> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/translate`, {
+      const response = await fetch(`${API_BASE_URL}/api/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, targetLang }),
@@ -244,8 +182,7 @@ export const api = {
     },
 
     save: async (articleId: string, content: string): Promise<void> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/translations/save`, {
+      const response = await fetch(`${API_BASE_URL}/api/translations/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId, content }),
@@ -254,8 +191,7 @@ export const api = {
     },
 
     get: async (articleId: string): Promise<{ content: string | null }> => {
-      const baseUrl = await getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/translations/${articleId}`);
+      const response = await fetch(`${API_BASE_URL}/api/translations/${articleId}`);
       if (!response.ok) throw new Error("Failed to get translation");
       return response.json();
     },

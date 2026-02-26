@@ -37,10 +37,8 @@ app.route("/api/settings", settingsRouter);
 app.route("/api/translate", translationRouter);
 app.route("/api/translations", translationRouter);
 
-// Get port from args or use random port
-const args = Bun.argv.slice(2);
-const portArg = args.find((arg) => arg.startsWith("--port="));
-const port = portArg ? parseInt(portArg.split("=")[1]) : 0;
+// Fixed port for ElectroBun integration
+const port = 3456;
 
 // Start server
 const server = Bun.serve({
