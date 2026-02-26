@@ -162,7 +162,8 @@ git tag v0.2.0
 git push origin main && git push origin v0.2.0
 ```
 
-**注意**: 
+**注意**:
+
 - Git tag 名称必须以 `v` 开头 (如 `v0.2.0`)
 - `package.json` 中的版本号不需要 `v` 前缀 (如 `0.2.0`)
 - GitHub Actions 会自动构建并创建 Release
