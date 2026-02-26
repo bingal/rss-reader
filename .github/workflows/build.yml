@@ -176,7 +176,6 @@ jobs:
           cd release
           mv rss-reader rss-reader-macos
           mv rss-reader.exe rss-reader-windows.exe
-          mv rss-reader-linux rss-reader-linux
           ls -la
 
       - name: Delete existing release if exists
