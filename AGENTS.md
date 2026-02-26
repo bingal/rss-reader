@@ -114,7 +114,37 @@ bun run test:run
 # Code quality
 bun run format        # Format code
 bun run lint          # Lint
+bunx tsc --noEmit    # Type check
 ```
+
+## Pre-Commit Checklist
+
+**IMPORTANT**: Before committing changes to GitHub, ALWAYS run these commands:
+
+```bash
+# 1. Format code with Prettier
+bun run format
+
+# 2. Check formatting (should pass after step 1)
+bun run format:check
+
+# 3. Run linter
+bun run lint
+
+# 4. Type check
+bunx tsc --noEmit
+
+# 5. Run tests
+bun run test:run
+```
+
+**Quick validation** - Run all checks at once:
+
+```bash
+bun run format && bun run format:check && bun run lint && bunx tsc --noEmit && bun run test:run
+```
+
+If any of these fail, fix the issues before committing. The CI/CD pipeline will run the same checks and fail if they don't pass.
 
 ## RPC API Reference
 

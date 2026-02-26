@@ -6,7 +6,7 @@ import {
   getDatabaseStatus,
 } from "../db/connection";
 import { fetchFeed } from "../services/rss";
-import type { Feed } from "../types";
+import type { Feed } from "../../shared/types";
 
 const app = new Hono();
 

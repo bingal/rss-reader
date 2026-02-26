@@ -1,6 +1,6 @@
 import Parser from "rss-parser";
 import { randomUUID } from "crypto";
-import type { Article } from "../types";
+import type { Article } from "../../shared/types";
 import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 
 const parser = new Parser({

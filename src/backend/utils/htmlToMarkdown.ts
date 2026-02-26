@@ -13,15 +13,15 @@ const turndownService = new TurndownService({
 
 // Add custom rules for better conversion
 turndownService.addRule("strikethrough", {
-  filter: ["del", "s", "strike"],
-  replacement: (content) => `~~${content}~~`,
+  filter: "del",
+  replacement: (_content) => `~~${_content}~~`,
 });
 
 // Preserve images with alt text
 turndownService.addRule("image", {
   filter: "img",
-  replacement: (content, node) => {
-    const element = node as any;
+  replacement: (_content, node) => {
+    const element = node as Element;
     const alt = element.getAttribute("alt") || "";
     const src = element.getAttribute("src") || "";
     const title = element.getAttribute("title") || "";
@@ -36,14 +36,14 @@ turndownService.addRule("image", {
 // Preserve videos
 turndownService.addRule("video", {
   filter: "video",
-  replacement: (content, node) => {
-    const element = node as any;
+  replacement: (_content, node) => {
+    const element = node as Element;
     const src =
       element.getAttribute("src") ||
       element.querySelector("source")?.getAttribute("src") ||
       "";
 
-    if (!src) return content;
+    if (!src) return _content;
 
     return `\n[🎬 Video](${src})\n`;
   },
@@ -52,8 +52,8 @@ turndownService.addRule("video", {
 // Preserve iframes (YouTube, etc.)
 turndownService.addRule("iframe", {
   filter: "iframe",
-  replacement: (content, node) => {
-    const element = node as any;
+  replacement: (_content, node) => {
+    const element = node as Element;
     const src = element.getAttribute("src") || "";
 
     if (!src) return "";

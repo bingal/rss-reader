@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getDatabase } from "../db/connection";
-import type { Article, ArticleFilter } from "../types";
+import type { Article, ArticleFilter } from "../../shared/types";
 import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 
 const app = new Hono();
