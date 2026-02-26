@@ -1,6 +1,6 @@
 {
   "name": "rss-reader",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A fast, comfortable RSS reader desktop app built with ElectroBun",
   "type": "module",
   "scripts": {
